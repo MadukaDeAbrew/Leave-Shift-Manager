@@ -51,8 +51,8 @@ export default function Login() {
       // 2.4: store token & user, set auth header, persist to localStorage
       login(token, user);
 
-      //2.5 (early): redirect to /shifts
-      //navigate('/shifts', { replace: true });
+      //2.5 redirect to /api/shifts
+      navigate('/shifts', { replace: true });
     } catch (err) {
       const status = err?.response?.status;
       const msg = err?.response?.data?.message;
