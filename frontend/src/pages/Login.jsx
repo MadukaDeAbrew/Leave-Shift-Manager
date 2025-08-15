@@ -48,11 +48,11 @@ export default function Login() {
       const { token, user } = res.data || {};
       if (!token) throw new Error('No token returned');
 
-      /* Subtask 2.4: store token & user, set auth header, persist to localStorage
+      // 2.4: store token & user, set auth header, persist to localStorage
       login(token, user);
 
-      Subtask 2.5 (early): redirect to /shifts
-      navigate('/shifts', { replace: true });*/
+      //2.5 (early): redirect to /shifts
+      //navigate('/shifts', { replace: true });
     } catch (err) {
       const status = err?.response?.status;
       const msg = err?.response?.data?.message;
