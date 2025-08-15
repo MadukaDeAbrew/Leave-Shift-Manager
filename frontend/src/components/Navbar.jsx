@@ -25,6 +25,9 @@ const Navbar = () => {
       <div>
         {user ? (
           <>
+          
+            <Link to="/login" className="mr-4 hover:underline">Login</Link>
+
             <Link to="/shifts" className="mr-4 hover:underline">Shifts</Link>
             <Link to="/leaves" className="mr-4 hover:underline">Leaves</Link>
             <Link to="/my-swaps" className="mr-4 hover:underline">My Swaps</Link>
