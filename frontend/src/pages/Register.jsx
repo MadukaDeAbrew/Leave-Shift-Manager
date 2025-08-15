@@ -1,5 +1,6 @@
 //1.1 + 1.2
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom'; //1.5
 import axiosInstance from '../axiosConfig';
 
 const Register = () => {
@@ -10,6 +11,7 @@ const Register = () => {
   const [ok, setOk] = useState('');
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
+  const navigate = useNavigate(); //1.5
 
   const onChange = (e) => {
     const { name, value } = e.target;
@@ -42,7 +44,7 @@ const Register = () => {
     password: formData.password,
   });
 
-  // SUBTASK 1.3 — connect to backend
+  // 1.3
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(''); setOk('');
@@ -53,8 +55,12 @@ const Register = () => {
       const payload = normalize();
       await axiosInstance.post('/api/auth/register', payload);
       setOk('Account created. You can now log in.'); // 1.5 will redirect
-    } catch (err) {
-      // Friendly messages for common cases
+      // 1.5: redirect after success
+      setTimeout(() => navigate('/login'), 2000);
+    
+    }
+     catch (err) {
+     
       const status = err?.response?.status;
       const msg = err?.response?.data?.message;
       if (status === 409) setError(msg || 'An account with this email already exists.');
