@@ -1,11 +1,16 @@
 
-//2.1
+//2.1,2.2
 import { useMemo, useState } from 'react';
+import axiosInstance from '../axiosConfig';
 
 export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [touched, setTouched] = useState({});
   const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [ok, setOk] = useState('');
+  const [error, setError] = useState('');
 
   const onChange = (e) => {
     const { name, value } = e.target;
@@ -31,12 +36,34 @@ export default function Login() {
   const hasErrors = Object.keys(errors).length > 0;
   const showError = (name) => (submitAttempted || touched[name]) && errors[name];
 
-  //2.2 
-  const onSubmit = (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault();
     setSubmitAttempted(true);
+    setOk('');
+    setError('');
     if (hasErrors) return;
-    console.log('Login validation passed; ready for 2.3 API call:', form);
+
+    try {
+      setSubmitting(true);
+      //API path setting
+      const res = await axiosInstance.post('/api/auth/login', {
+        email: form.email.trim().toLowerCase(),
+        password: form.password,
+      });
+
+     //API path success
+      const { token, user } = res.data || {};
+      setOk('Login successful. (Next step 2.4: store token & redirect)');
+      console.log('Login success payload:', { token, user });
+    } catch (err) {
+      const status = err?.response?.status;
+      const msg = err?.response?.data?.message;
+      if (status === 400) setError(msg || 'Invalid credentials.');
+      else setError(msg || 'Login failed. Please try again.');
+      console.error('Login failed:', status, err?.response?.data || err?.message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -44,6 +71,9 @@ export default function Login() {
       <div className="w-full max-w-md bg-white border border-[#cbd5e1] rounded-xl shadow p-6">
         <h1 className="text-2xl font-bold text-[#1e3a8a] mb-1">Welcome back</h1>
         <p className="text-sm text-[#4b5563] mb-6">Sign in to continue.</p>
+
+        {error && <div className="mb-3 p-2 bg-red-100 text-red-700 rounded">{error}</div>}
+        {ok && <div className="mb-3 p-2 bg-green-100 text-green-800 rounded">{ok}</div>}
 
         <form onSubmit={onSubmit} className="grid gap-4" noValidate>
           {/* Email */}
@@ -96,13 +126,14 @@ export default function Login() {
 
           <button
             type="submit"
+            disabled={submitting}
             className={`mt-2 text-white px-4 py-2 rounded ${
               hasErrors && submitAttempted
                 ? 'bg-gray-400 cursor-not-allowed'
                 : 'bg-[#1e3a8a] hover:bg-[#3b82f6]'
             }`}
           >
-            Sign In
+            {submitting ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
       </div>

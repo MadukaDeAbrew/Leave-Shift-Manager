@@ -44,7 +44,7 @@ const registerUser = async (req, res) => {
     // Create user
     const user = await User.create({ name, email, password: hash });
 
-    // For signup we can choose not to auto-login; here we return token for convenience
+    // set no auto-login for signup
     return res.status(201).json({
       message: 'User registered successfully.',
       id: user.id,
@@ -63,7 +63,7 @@ const registerUser = async (req, res) => {
   }
 };
 
-// --- POST /api/auth/login ---
+// 2.3 /api/auth/login ---
 const loginUser = async (req, res) => {
   try {
     const email = normalizeEmail(req.body.email);
@@ -73,7 +73,7 @@ const loginUser = async (req, res) => {
       return res.status(400).json({ message: 'Email and password are required.' });
     }
 
-    // IMPORTANT: select('+password') because password has select:false in schema
+    // select('+password') because password has select:false in schema
     const user = await User.findOne({ email }).select('+password');
     if (!user) return res.status(400).json({ message: 'Invalid credentials' });
 
@@ -107,7 +107,7 @@ const getProfile = async (req, res) => {
     const user = await User.findById(req.user.id).lean();
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // Never include password (schema select:false already prevents it)
+    
     return res.json({
       name: user.name,
       email: user.email,
@@ -129,7 +129,7 @@ const updateUserProfile = async (req, res) => {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // Only update provided fields; normalize email
+    // Only update provided fields
     const {
       name,
       email,
@@ -148,7 +148,7 @@ const updateUserProfile = async (req, res) => {
 
     try {
       const updated = await user.save();
-      // Issue a fresh token (optional; keeps client “logged in” with current profile)
+      // To issue a fresh token (optional; keeps client “logged in” with current profile)
       return res.json({
         id: updated.id,
         name: updated.name,
