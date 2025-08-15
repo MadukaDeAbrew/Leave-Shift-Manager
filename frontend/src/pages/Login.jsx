@@ -31,12 +31,12 @@ export default function Login() {
   const hasErrors = Object.keys(errors).length > 0;
   const showError = (name) => (submitAttempted || touched[name]) && errors[name];
 
-  // UI-only (Subtask 2.2). API wiring comes in 2.3
+  //2.2 
   const onSubmit = (e) => {
     e.preventDefault();
     setSubmitAttempted(true);
     if (hasErrors) return;
-    console.log('Login validation passed. Ready to call API in 2.3:', form);
+    console.log('Login validation passed; ready for 2.3 API call:', form);
   };
 
   return (
