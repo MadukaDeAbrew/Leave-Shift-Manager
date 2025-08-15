@@ -1,6 +1,6 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
-//const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 
 const generateToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
@@ -37,7 +37,7 @@ const registerUser = async (req, res) => {
       return res.status(409).json({ message: 'An account with this email already exists.' });
     }
 
-    // Hash password
+    // 1.4 Hash password 
     const salt = await bcrypt.genSalt(10);
     const hash = await bcrypt.hash(password, salt);
 
@@ -172,5 +172,6 @@ const updateUserProfile = async (req, res) => {
     return res.status(500).json({ message: 'Server error updating profile.' });
   }
 };
+
 
 module.exports = { registerUser, loginUser, updateUserProfile, getProfile };
