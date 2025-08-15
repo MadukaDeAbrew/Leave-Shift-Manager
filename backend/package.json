@@ -1,7 +1,7 @@
 {
-  "name": "task-manager-backend",
+  "name": "leave-shift-manager-backend",
   "version": "1.0.0",
-  "description": "Backend for Task Manager App",
+  "description": "Backend for Leave Shift App",
   "main": "server.js",
   "scripts": {
     "test": "mocha",
@@ -26,6 +26,6 @@
     "nodemon": "^2.0.15",
     "sinon": "^19.0.2"
   },
-  "author": "Task Manager Team",
+  "author": "LSM Team",
   "license": "ISC"
 }
