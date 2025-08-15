@@ -1,3 +1,4 @@
+/*
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -46,3 +47,65 @@ const Login = () => {
 };
 
 export default Login;
+*/
+//2.1
+import { useState } from 'react';
+
+export default function Login() {
+  const [form, setForm] = useState({ email: '', password: '' });
+
+  const onChange = (e) => {
+    const { name, value } = e.target;
+    setForm((f) => ({ ...f, [name]: value }));
+  };
+
+  // UI-only for Subtask 2.1 (no API/validation yet)
+  const onSubmit = (e) => {
+    e.preventDefault();
+    console.log('Login UI submit clicked (stub):', form);
+  };
+
+  return (
+    <div className="min-h-[80vh] flex items-center justify-center bg-[#f4f6f8] p-4">
+      <div className="w-full max-w-md bg-white border border-[#cbd5e1] rounded-xl shadow p-6">
+        <h1 className="text-2xl font-bold text-[#1e3a8a] mb-1">Welcome back</h1>
+        <p className="text-sm text-[#4b5563] mb-6">Sign in to continue!</p>
+
+        <form onSubmit={onSubmit} className="grid gap-4">
+          <label className="block">
+            <span className="block text-sm text-[#4b5563] mb-1">Email</span>
+            <input
+              type="email"
+              name="email"
+              value={form.email}
+              onChange={onChange}
+              className="w-full p-2 border border-[#cbd5e1] rounded"
+              placeholder="alex@example.com"
+              autoComplete="email"
+            />
+          </label>
+
+          <label className="block">
+            <span className="block text-sm text-[#4b5563] mb-1">Password</span>
+            <input
+              type="password"
+              name="password"
+              value={form.password}
+              onChange={onChange}
+              className="w-full p-2 border border-[#cbd5e1] rounded"
+              placeholder="********"
+              autoComplete="current-password"
+            />
+          </label>
+
+          <button
+            type="submit"
+            className="mt-2 bg-[#1e3a8a] hover:bg-[#3b82f6] text-white px-4 py-2 rounded"
+          >
+            Sign In
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
