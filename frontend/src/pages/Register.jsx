@@ -60,7 +60,7 @@ const Register = () => {
     
     }
      catch (err) {
-     
+     console.error('Register failed:', err?.response?.status, err?.response?.data);
       const status = err?.response?.status;
       const msg = err?.response?.data?.message;
       if (status === 409) setError(msg || 'An account with this email already exists.');
