@@ -36,7 +36,9 @@ export const AuthProvider = ({ children }) => {
      //3.1 clear axios Authorization header
     delete axiosInstance.defaults.headers.common.Authorization;
     localStorage.removeItem('auth');
+    localStorage.removeItem('user');
   };
+   const isAdmin = !!user && user.role === 'admin';
 
   const value = useMemo(() => ({ token, user, loading, login, logout }), [token, user, loading]);
 

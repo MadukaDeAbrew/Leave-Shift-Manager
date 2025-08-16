@@ -7,7 +7,10 @@ const Navbar = () => {
 
   const handleLogout = () => {
     logout();  //3.1
-    navigate('/login'); //3.2
+    navigate('/login', {   //3.2,3.3
+      replace: true,
+      state: { msg: 'You have been logged out.' },
+    });
   };
 
   return (

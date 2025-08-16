@@ -1,19 +1,28 @@
-
-//2.1,2.2
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+// 2.1, 2.2, 2.3, 2.4, 2.5 + flash message support
+import { useMemo, useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import axiosInstance from '../axiosConfig';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { login } = useAuth(); // from AuthContext
+
   const [form, setForm] = useState({ email: '', password: '' });
   const [touched, setTouched] = useState({});
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [ok, setOk] = useState('');
   const [error, setError] = useState('');
-  const navigate = useNavigate();
-  const { login } = useAuth(); // from AuthContext
+  const [flash, setFlash] = useState(location.state?.msg || '');
+
+  // Clear router state so flash doesn't persist on refresh/back
+  useEffect(() => {
+    if (location.state?.msg) {
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
 
   const onChange = (e) => {
     const { name, value } = e.target;
@@ -41,17 +50,17 @@ export default function Login() {
 
     try {
       setSubmitting(true);
-      const res = await axiosInstance.post('/api/auth/login', {
+       const res = await axiosInstance.post('/api/auth/login', {
         email: form.email.trim().toLowerCase(),
         password: form.password,
       });
       const { token, user } = res.data || {};
       if (!token) throw new Error('No token returned');
 
-      // 2.4: store token & user, set auth header, persist to localStorage
+      // 2.4: store token & user, set header, persist (handled by AuthContext)
       login(token, user);
 
-      //2.5 redirect to /api/shifts
+      // 2.5: redirect
       navigate('/shifts', { replace: true });
     } catch (err) {
       const status = err?.response?.status;
@@ -62,16 +71,25 @@ export default function Login() {
     } finally {
       setSubmitting(false);
     }
-  }; 
+  };
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center bg-[#f4f6f8] p-4">
       <div className="w-full max-w-md bg-white border border-[#cbd5e1] rounded-xl shadow p-6">
+        {/* Flash message from redirects (ProtectedRoute/logout) */}
+        {flash && (
+          <div className="mb-3 p-2 rounded bg-blue-100 text-blue-800">
+            {flash}
+          </div>
+        )}
+
+        {/* API error */}
+        {error && <div className="mb-3 p-2 bg-red-100 text-red-700 rounded">{error}</div>}
+        {/* Optional success (not commonly used on login, but keeping your state) */}
+        {ok && <div className="mb-3 p-2 bg-green-100 text-green-800 rounded">{ok}</div>}
+
         <h1 className="text-2xl font-bold text-[#1e3a8a] mb-1">Welcome back</h1>
         <p className="text-sm text-[#4b5563] mb-6">Sign in to continue.</p>
-
-        {error && <div className="mb-3 p-2 bg-red-100 text-red-700 rounded">{error}</div>}
-        {ok && <div className="mb-3 p-2 bg-green-100 text-green-800 rounded">{ok}</div>}
 
         <form onSubmit={onSubmit} className="grid gap-4" noValidate>
           <label className="block">
