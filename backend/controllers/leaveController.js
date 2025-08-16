@@ -91,10 +91,12 @@ const createLeave = async (req, res) => {
  * - Owner or Admin can update details
  * - Optional: Only Pending can be edited by non-admin (uncomment to enforce)
  */
+// PUT /api/leaves/:id
+// - Owner or Admin can update details
+// - Non-admins may be limited to editing only Pending leaves (toggle via flag)
 const updateLeave = async (req, res) => {
   try {
     const { id } = req.params;
-    
     const leave = await Leave.findById(id);
     if (!leave) return res.status(404).json({ message: 'Leave not found' });
 
@@ -104,24 +106,70 @@ const updateLeave = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to update this leave' });
     }
 
-    const { startDate, endDate, reason, leaveType, status } = req.body;
-
-    //  block edits on non-Pending leaves for users:
-    if (!isAdmin && leave.status !== 'Pending') {
-      return res.status(400).json({ message: 'Only Pending leaves can be updated by user' });
+    // (optional) block non-admin from editing non-Pending
+    const ONLY_PENDING_FOR_USERS = true;
+    if (ONLY_PENDING_FOR_USERS && !isAdmin && leave.status !== 'Pending') {
+      return res.status(400).json({ message: 'Only Pending leaves can be updated by the requester' });
     }
 
-    if (startDate !== undefined) leave.startDate = startDate;
-    if (endDate !== undefined)   leave.endDate   = endDate;
-    if (reason !== undefined)    leave.reason    = reason;
+    // Extract potential updates
+    const { startDate, endDate, reason, leaveType, status } = req.body;
+
+    // ---- VALIDATION: updated date ranges ----
+    // Only validate dates if either date is present in the payload.
+    let sd = leave.startDate;
+    let ed = leave.endDate;
+
+    if (startDate !== undefined) {
+      const parsed = new Date(startDate);
+      if (Number.isNaN(parsed.getTime())) {
+        return res.status(400).json({ message: 'Invalid startDate' });
+      }
+      sd = parsed;
+    }
+
+    if (endDate !== undefined) {
+      const parsed = new Date(endDate);
+      if (Number.isNaN(parsed.getTime())) {
+        return res.status(400).json({ message: 'Invalid endDate' });
+      }
+      ed = parsed;
+    }
+
+    // If any date was provided, enforce start <= end
+    if ((startDate !== undefined || endDate !== undefined) && sd > ed) {
+      return res.status(400).json({ message: 'startDate must be on or before endDate' });
+    }
+
+    // (optional) disallow past start dates for non-admin edits
+    const allowPast = false; // set true if you WANT to allow editing into the past
+    if (!allowPast && !isAdmin && (startDate !== undefined)) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (sd < today) {
+        return res.status(400).json({ message: 'startDate cannot be in the past' });
+      }
+    }
+
+    // Apply updates
+    if (startDate !== undefined) leave.startDate = sd;
+    if (endDate !== undefined)   leave.endDate = ed;
+    if (reason !== undefined)    leave.reason = (reason || '').toString().slice(0, 500);
     if (leaveType !== undefined) leave.leaveType = leaveType;
-    if (status !== undefined && isAdmin) leave.status = status; // only admin can change status
+
+    // Status change: admin only
+    if (status !== undefined && isAdmin) {
+      if (!['Pending', 'Approved', 'Rejected', 'Cancelled'].includes(status)) {
+        return res.status(400).json({ message: 'Invalid status value' });
+      }
+      leave.status = status;
+    }
 
     const updated = await leave.save();
-    res.json(updated);
+    return res.json(updated);
   } catch (err) {
     console.error('updateLeave error:', err);
-    res.status(500).json({ message: 'Failed to update leave.' });
+    return res.status(500).json({ message: 'Failed to update leave.' });
   }
 };
 
