@@ -1,3 +1,4 @@
+// backend/routes/leaveRoutes.js
 const express = require('express');
 const router = express.Router();
 
@@ -11,22 +12,19 @@ const {
 } = require('../controllers/leaveController');
 
 const { protect } = require('../middleware/authMiddleware');
-const { admin } = require('../middleware/roleMiddleware');
+const role = require('../middleware/roleMiddleware');
 
-// List leaves
-router.get('/', protect, getLeaves);
+// Protect all /api/leaves routes
+router.use(protect);
 
-// Create leave (user)
-router.post('/', protect, createLeave);
+// User-level routes
+router.get('/', getLeaves);
+router.post('/', createLeave);
+router.put('/:id', updateLeave);
+router.delete('/:id', deleteLeave);
 
-// Update leave (admin)
-router.put('/:id', protect, updateLeave);
-
-// Delete leave (admin)
-router.delete('/:id', protect, deleteLeave);
-
-// Approvals (admin only)
-router.patch('/:id/approve', protect, admin, approveLeave);
-router.patch('/:id/reject', protect, admin, rejectLeave);
+// Admin-only routes
+router.patch('/:id/approve', role('admin'), approveLeave);
+router.patch('/:id/reject', role('admin'), rejectLeave);
 
 module.exports = router;

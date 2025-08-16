@@ -2,17 +2,22 @@ import { useMemo, useState } from 'react';
 
 /**
  * LeaveForm with validation (Subtask 4.2)
- * Validations added:
- *  - startDate & endDate required
- *  - startDate <= endDate
- *  - startDate not in the past (configurable)
- *  - leaveType required (from list)
- *  - reason optional (<= 500 chars)
- * - allowPast?: boolean        // default false (block past dates)
+ * Props:
+ *  - onSubmit(form)   -> required
+ *  - onCancel()       -> optional
+ *  - initial          -> optional (prefill)
+ *  - allowPast=false  -> optional
+ *  - disabled=false   -> optional (external submit lock)
  */
 const LEAVE_TYPES = ['Annual', 'Sick', 'Casual', 'Unpaid', 'Study', 'Other'];
 
-export default function LeaveForm({ onSubmit, onCancel, initial, allowPast = false }) {
+export default function LeaveForm({
+  onSubmit,
+  onCancel,
+  initial,
+  allowPast = false,
+  disabled = false,          // ✅ accept disabled from parent
+}) {
   const [form, setForm] = useState({
     startDate: initial?.startDate?.slice(0, 10) || '',
     endDate:   initial?.endDate?.slice(0, 10)   || '',
@@ -21,7 +26,6 @@ export default function LeaveForm({ onSubmit, onCancel, initial, allowPast = fal
   });
   const [touched, setTouched] = useState({});
   const [submitAttempted, setSubmitAttempted] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
 
   const update = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }));
   const onBlur = (e) => setTouched((t) => ({ ...t, [e.target.name]: true }));
@@ -34,7 +38,7 @@ export default function LeaveForm({ onSubmit, onCancel, initial, allowPast = fal
     return d;
   }, []);
 
-  // 4.2 Validation rules
+  // Validation
   const errors = useMemo(() => {
     const e = {};
     const start = toDate(form.startDate);
@@ -42,44 +46,26 @@ export default function LeaveForm({ onSubmit, onCancel, initial, allowPast = fal
 
     if (!form.startDate) e.startDate = 'Start date is required.';
     if (!form.endDate) e.endDate = 'End date is required.';
-
-    if (start && end && start > end) {
-      e.endDate = 'End date must be on or after the start date.';
-    }
-
-    if (!allowPast && start && start < today) {
-      e.startDate = 'Start date cannot be in the past.';
-    }
-
-    if (!LEAVE_TYPES.includes(form.leaveType)) {
-      e.leaveType = 'Please choose a valid leave type.';
-    }
-
-    if (form.reason && form.reason.length > 500) {
-      e.reason = 'Reason must be 500 characters or less.';
-    }
+    if (start && end && start > end) e.endDate = 'End date must be on or after the start date.';
+    if (!allowPast && start && start < today) e.startDate = 'Start date cannot be in the past.';
+    if (!LEAVE_TYPES.includes(form.leaveType)) e.leaveType = 'Please choose a valid leave type.';
+    if (form.reason && form.reason.length > 500) e.reason = 'Reason must be 500 characters or less.';
     return e;
   }, [form, allowPast, today]);
 
   const hasErrors = Object.keys(errors).length > 0;
   const showErr = (name) => (submitAttempted || touched[name]) && errors[name];
 
-  const submit = async (e) => {
+  const submit = (e) => {
     e.preventDefault();
     setSubmitAttempted(true);
-    if (hasErrors) return;
-    setSubmitting(true);
-    try {
-      
-      onSubmit?.({
-        startDate: form.startDate,
-        endDate: form.endDate,
-        leaveType: form.leaveType,
-        reason: form.reason.trim(),
-      });
-    } finally {
-      setSubmitting(false);
-    }
+    if (hasErrors || disabled) return;
+    onSubmit?.({
+      startDate: form.startDate,
+      endDate: form.endDate,
+      leaveType: form.leaveType,
+      reason: form.reason.trim(),
+    });
   };
 
   return (
@@ -160,14 +146,14 @@ export default function LeaveForm({ onSubmit, onCancel, initial, allowPast = fal
       <div className="flex gap-2 pt-2">
         <button
           type="submit"
-          disabled={disabled || submitting || hasErrors}
+          disabled={disabled || hasErrors}
           className={`text-white px-4 py-2 rounded ${
-            disabled || submitting || hasErrors
+            disabled || hasErrors
               ? 'bg-gray-400 cursor-not-allowed'
               : 'bg-[#1e3a8a] hover:bg-[#3b82f6]'
           }`}
         >
-          {disabled || submitting ? 'Submitting…' : 'Submit Request'}
+          {disabled ? 'Submitting…' : 'Submit Request'}
         </button>
 
         {onCancel && (

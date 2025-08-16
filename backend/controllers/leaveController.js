@@ -3,18 +3,15 @@ const Leave = require('../models/Leave');
 
 /**
  * GET /api/leaves
- * - Admin: all leaves (optionally populate)
+ * - Admin: all leaves (populated user)
  * - User: own leaves
  */
 const getLeaves = async (req, res) => {
   try {
     const isAdmin = req.user?.role === 'admin';
     const filter = isAdmin ? {} : { userId: req.user.id };
-
-    // If you want admin UI to show names, keep populate; users don’t need it
     const q = Leave.find(filter).sort({ startDate: -1 });
     if (isAdmin) q.populate('userId', 'name email');
-
     const leaves = await q.exec();
     res.json(leaves);
   } catch (err) {
@@ -25,81 +22,81 @@ const getLeaves = async (req, res) => {
 
 /**
  * POST /api/leaves
- * - Authenticated user creates a leave request
- * Body: { startDate, endDate, leaveType, reason }
+ * - User creates a leave request
  */
 const createLeave = async (req, res) => {
   try {
-    const { startDate, endDate, leaveType, reason } = req.body;
+    const { startDate, endDate, reason, leaveType } = req.body;
 
-    if (!startDate || !endDate) {
-      return res.status(400).json({ message: 'startDate and endDate are required.' });
+    if (!startDate) return res.status(400).json({ message: 'startDate is required' });
+    if (!endDate) return res.status(400).json({ message: 'endDate is required' });
+
+    const sd = new Date(startDate);
+    const ed = new Date(endDate);
+    if (Number.isNaN(sd.getTime()) || Number.isNaN(ed.getTime())) {
+      return res.status(400).json({ message: 'Invalid date(s) provided' });
+    }
+    if (sd > ed) {
+      return res.status(400).json({ message: 'startDate must be on or before endDate' });
     }
 
     const leave = await Leave.create({
       userId: req.user.id,
-      startDate,
-      endDate,
+      startDate: sd,
+      endDate: ed,
+      reason: reason || '',
       leaveType: leaveType || 'Annual',
-      reason: (reason || '').trim(),
       status: 'Pending',
     });
 
     res.status(201).json(leave);
   } catch (err) {
     console.error('createLeave error:', err);
-    // handle schema range error
-    if (err.message && /startDate must be on or before endDate/.test(err.message)) {
-      return res.status(400).json({ message: err.message });
-    }
     res.status(500).json({ message: 'Failed to create leave.' });
   }
 };
 
-//PUT /api/leaves/:id
-
-// Owner can edit only while Pending; Admin can edit anytime
+/**
+ * PUT /api/leaves/:id
+ * - Owner or Admin can update details
+ * - (Optional) Only Pending can be edited by non-admin
+ */
 const updateLeave = async (req, res) => {
   try {
     const { id } = req.params;
     const leave = await Leave.findById(id);
-    if (!leave) return res.status(404).json({ message: 'Leave not found! Check detail again!' });
+    if (!leave) return res.status(404).json({ message: 'Leave not found' });
 
     const isOwner = leave.userId.toString() === req.user.id;
     const isAdmin = req.user.role === 'admin';
-
     if (!isOwner && !isAdmin) {
       return res.status(403).json({ message: 'Not authorized to update this leave' });
     }
 
-    // Users can only edit while Pending
-    if (isOwner && !isAdmin && leave.status !== 'Pending') {
-      return res.status(400).json({ message: 'Only Pending leaves can be updated by the requester' });
-    }
+    const { startDate, endDate, reason, leaveType, status } = req.body;
 
-    const { startDate, endDate, leaveType, reason, status } = req.body;
+    // Optional: block non-admin from editing non-Pending
+    // if (!isAdmin && leave.status !== 'Pending') {
+    //   return res.status(400).json({ message: 'Only Pending leaves can be updated by user' });
+    // }
 
-    // Allow requester to change their own fields; status is admin-only
     if (startDate !== undefined) leave.startDate = startDate;
     if (endDate !== undefined) leave.endDate = endDate;
+    if (reason !== undefined) leave.reason = reason;
     if (leaveType !== undefined) leave.leaveType = leaveType;
-    if (reason !== undefined) leave.reason = (reason || '').trim();
-
-    // Admin can update status (and optionally other fields as above)
     if (status !== undefined && isAdmin) leave.status = status;
 
-    // Basic range validation already handled by schema pre-save
     const updated = await leave.save();
-    return res.json(updated);
+    res.json(updated);
   } catch (err) {
     console.error('updateLeave error:', err);
-    return res.status(500).json({ message: 'Failed to update leave.' });
+    res.status(500).json({ message: 'Failed to update leave.' });
   }
 };
 
 /**
  * DELETE /api/leaves/:id
- * - User can delete till pending status
+ * - Owner can delete only when Pending; Admin can delete always
  */
 const deleteLeave = async (req, res) => {
   try {
@@ -110,14 +107,11 @@ const deleteLeave = async (req, res) => {
     const isOwner = leave.userId.toString() === req.user.id;
     const isAdmin = req.user.role === 'admin';
 
-    // Rule: user can only delete if Pending, otherwise block
-    if (isOwner) {
+    if (!isAdmin) {
+      if (!isOwner) return res.status(403).json({ message: 'Not authorized' });
       if (leave.status !== 'Pending') {
-        return res.status(403).json({ message: 'Cannot delete leave once it is processed' });
+        return res.status(403).json({ message: 'Only Pending leaves can be deleted by user' });
       }
-    } else if (!isAdmin) {
-      // not owner, not admin → forbidden
-      return res.status(403).json({ message: 'Not authorized to delete this leave' });
     }
 
     await leave.deleteOne();
@@ -128,28 +122,36 @@ const deleteLeave = async (req, res) => {
   }
 };
 
-
-
- //For Admin approvals
-
+/**
+ * PATCH /api/leaves/:id/approve  (Admin)
+ */
 const approveLeave = async (req, res) => {
   try {
-    const leave = await Leave.findById(req.params.id);
+    const { id } = req.params;
+    const leave = await Leave.findById(id);
     if (!leave) return res.status(404).json({ message: 'Leave not found' });
+
     leave.status = 'Approved';
-    res.json(await leave.save());
+    const updated = await leave.save();
+    res.json(updated);
   } catch (err) {
     console.error('approveLeave error:', err);
     res.status(500).json({ message: 'Failed to approve leave.' });
   }
 };
 
+/**
+ * PATCH /api/leaves/:id/reject  (Admin)
+ */
 const rejectLeave = async (req, res) => {
   try {
-    const leave = await Leave.findById(req.params.id);
+    const { id } = req.params;
+    const leave = await Leave.findById(id);
     if (!leave) return res.status(404).json({ message: 'Leave not found' });
+
     leave.status = 'Rejected';
-    res.json(await leave.save());
+    const updated = await leave.save();
+    res.json(updated);
   } catch (err) {
     console.error('rejectLeave error:', err);
     res.status(500).json({ message: 'Failed to reject leave.' });
