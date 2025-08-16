@@ -19,6 +19,9 @@ export default function LeavesPage() {
   const [formKey, setFormKey] = useState(0);
   const alertRef = useRef(null);
 
+  // NEW: track the row we’re editing (or null)
+  const [editTarget, setEditTarget] = useState(null); // row object
+
   const queryStatus = useMemo(() => (statusTab === 'All' ? undefined : statusTab), [statusTab]);
 
   const fetchLeaves = async () => {
@@ -71,20 +74,41 @@ export default function LeavesPage() {
     }
   };
 
-  // ✅ NEW: Cancel (delete) a Pending leave
+  // Cancel (delete) a Pending leave
   const cancelLeave = async (id) => {
     if (!window.confirm('Cancel this leave request?')) return;
     setErr(''); setOk('');
     try {
       await axiosInstance.delete(`/api/leaves/${id}`);
-      // Optimistic remove
       setRows(prev => prev.filter(r => r._id !== id));
       setOk('Leave request cancelled.');
+      if (editTarget?._id === id) setEditTarget(null);
     } catch (e) {
       const status = e?.response?.status;
       const msg = e?.response?.data?.message || e?.message || 'Failed to cancel leave.';
       console.error('Cancel leave failed:', status, msg);
       setErr(`Failed to cancel leave${status ? ` (HTTP ${status})` : ''}. ${msg}`);
+    }
+  };
+
+  // ✅ NEW: Save edits for a Pending leave
+  const saveEdit = async (patch) => {
+    if (!editTarget) return;
+    setErr(''); setOk('');
+    setSubmitting(true);
+    try {
+      const res = await axiosInstance.put(`/api/leaves/${editTarget._id}`, patch);
+      const updated = res.data;
+      setRows(prev => prev.map(r => (r._id === updated._id ? updated : r)));
+      setOk('Leave updated.');
+      setEditTarget(null);
+    } catch (e) {
+      const status = e?.response?.status;
+      const msg = e?.response?.data?.message || e?.message || 'Failed to update leave.';
+      console.error('Update leave failed:', status, msg);
+      setErr(`Failed to update leave${status ? ` (HTTP ${status})` : ''}. ${msg}`);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -137,7 +161,6 @@ export default function LeavesPage() {
         ))}
       </div>
 
-      {/* Success/Error banners (used for cancel messages too) */}
       {(ok || err) && (
         <div
           ref={alertRef}
@@ -153,8 +176,31 @@ export default function LeavesPage() {
         </div>
       )}
 
-      {/* Create Form */}
-      <LeaveForm key={formKey} onSubmit={handleCreate} disabled={submitting} />
+      {/* Create Form (new request) */}
+      {!editTarget && (
+        <LeaveForm key={formKey} onSubmit={handleCreate} disabled={submitting} />
+      )}
+
+      {/* ✅ Inline Edit Panel (reuses LeaveForm with initial values) */}
+      {editTarget && (
+        <div className="mb-6">
+          <div className="mb-2 font-semibold text-[#1e3a8a]">
+            Editing request from {new Date(editTarget.startDate).toLocaleDateString()}
+            {editTarget.endDate ? ` to ${new Date(editTarget.endDate).toLocaleDateString()}` : ''}
+          </div>
+          <LeaveForm
+            initial={{
+              startDate: editTarget.startDate,
+              endDate: editTarget.endDate,
+              leaveType: editTarget.leaveType,
+              reason: editTarget.reason,
+            }}
+            onSubmit={saveEdit}
+            onCancel={() => setEditTarget(null)}
+            disabled={submitting}
+          />
+        </div>
+      )}
 
       {/* List */}
       <div className="mt-6 bg-white border border-[#cbd5e1] rounded shadow overflow-x-auto">
@@ -190,12 +236,20 @@ export default function LeavesPage() {
                   </td>
                   <td className="p-3 border-b">
                     {l.status === 'Pending' ? (
-                      <button
-                        onClick={() => cancelLeave(l._id)}
-                        className="px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700"
-                      >
-                        Cancel
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setEditTarget(l)}
+                          className="px-3 py-1 rounded bg-yellow-500 text-white hover:bg-yellow-600"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => cancelLeave(l._id)}
+                          className="px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700"
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     ) : (
                       <span className="text-sm text-gray-400">—</span>
                     )}
@@ -210,11 +264,11 @@ export default function LeavesPage() {
       {/* Pager */}
       <div className="mt-4 flex items-center gap-2">
         <button
-          onClick={() => canPrev && setPage(p => p - 1)}
-          disabled={!canPrev}
+          onClick={() => page > 1 && setPage(p => p - 1)}
+          disabled={page <= 1}
           className={`px-3 py-1 rounded border ${
-            canPrev ? 'bg-white text-[#1e3a8a] border-[#cbd5e1] hover:bg-[#eef2ff]'
-                    : 'bg-gray-100 text-gray-400 border-[#e5e7eb] cursor-not-allowed'
+            page > 1 ? 'bg-white text-[#1e3a8a] border-[#cbd5e1] hover:bg-[#eef2ff]'
+                      : 'bg-gray-100 text-gray-400 border-[#e5e7eb] cursor-not-allowed'
           }`}
         >
           Prev
@@ -236,11 +290,11 @@ export default function LeavesPage() {
         </div>
 
         <button
-          onClick={() => canNext && setPage(p => p + 1)}
-          disabled={!canNext}
+          onClick={() => page < pages && setPage(p => p + 1)}
+          disabled={page >= pages}
           className={`px-3 py-1 rounded border ${
-            canNext ? 'bg-white text-[#1e3a8a] border-[#cbd5e1] hover:bg-[#eef2ff]'
-                    : 'bg-gray-100 text-gray-400 border-[#e5e7eb] cursor-not-allowed'
+            page < pages ? 'bg-white text-[#1e3a8a] border-[#cbd5e1] hover:bg-[#eef2ff]'
+                         : 'bg-gray-100 text-gray-400 border-[#e5e7eb] cursor-not-allowed'
           }`}
         >
           Next
