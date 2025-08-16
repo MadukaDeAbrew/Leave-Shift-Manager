@@ -1,33 +1,91 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 /**
- * 4.1
- * - Emits { startDate, endDate, leaveType, reason } via props.onSubmit(form)
- * - Styling in ash & blue palette to match the app
- *
- * Props:
- *  - onSubmit: (form) => void
- *  - onCancel?: () => void  (optional)
- *  - initial?: { startDate, endDate, leaveType, reason } (optional for edit flows)
+ * LeaveForm with validation (Subtask 4.2)
+ * Validations added:
+ *  - startDate & endDate required
+ *  - startDate <= endDate
+ *  - startDate not in the past (configurable)
+ *  - leaveType required (from list)
+ *  - reason optional (<= 500 chars)
+ * - allowPast?: boolean        // default false (block past dates)
  */
-export default function LeaveForm({ onSubmit, onCancel, initial }) {
+const LEAVE_TYPES = ['Annual', 'Sick', 'Casual', 'Unpaid', 'Study', 'Other'];
+
+export default function LeaveForm({ onSubmit, onCancel, initial, allowPast = false }) {
   const [form, setForm] = useState({
     startDate: initial?.startDate?.slice(0, 10) || '',
     endDate:   initial?.endDate?.slice(0, 10)   || '',
     leaveType: initial?.leaveType || 'Annual',
     reason:    initial?.reason || '',
   });
+  const [touched, setTouched] = useState({});
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const update = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }));
+  const onBlur = (e) => setTouched((t) => ({ ...t, [e.target.name]: true }));
 
-  const submit = (e) => {
+  // Helpers
+  const toDate = (s) => (s ? new Date(s + 'T00:00:00') : null);
+  const today = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+
+  // 4.2 Validation rules
+  const errors = useMemo(() => {
+    const e = {};
+    const start = toDate(form.startDate);
+    const end   = toDate(form.endDate);
+
+    if (!form.startDate) e.startDate = 'Start date is required.';
+    if (!form.endDate) e.endDate = 'End date is required.';
+
+    if (start && end && start > end) {
+      e.endDate = 'End date must be on or after the start date.';
+    }
+
+    if (!allowPast && start && start < today) {
+      e.startDate = 'Start date cannot be in the past.';
+    }
+
+    if (!LEAVE_TYPES.includes(form.leaveType)) {
+      e.leaveType = 'Please choose a valid leave type.';
+    }
+
+    if (form.reason && form.reason.length > 500) {
+      e.reason = 'Reason must be 500 characters or less.';
+    }
+    return e;
+  }, [form, allowPast, today]);
+
+  const hasErrors = Object.keys(errors).length > 0;
+  const showErr = (name) => (submitAttempted || touched[name]) && errors[name];
+
+  const submit = async (e) => {
     e.preventDefault();
-    if (typeof onSubmit === 'function') onSubmit(form);
+    setSubmitAttempted(true);
+    if (hasErrors) return;
+    setSubmitting(true);
+    try {
+      
+      onSubmit?.({
+        startDate: form.startDate,
+        endDate: form.endDate,
+        leaveType: form.leaveType,
+        reason: form.reason.trim(),
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <form
       onSubmit={submit}
+      noValidate
       className="bg-[#f4f6f8] border border-[#cbd5e1] rounded-xl shadow p-5 grid gap-4"
     >
       <h3 className="text-lg font-semibold text-[#1e3a8a]">Request Leave</h3>
@@ -37,11 +95,14 @@ export default function LeaveForm({ onSubmit, onCancel, initial }) {
         <span className="block text-sm text-[#4b5563] mb-1">Start Date</span>
         <input
           type="date"
+          name="startDate"
           value={form.startDate}
           onChange={update('startDate')}
-          className="w-full p-2 border border-[#cbd5e1] rounded"
+          onBlur={onBlur}
+          className={`w-full p-2 border rounded ${showErr('startDate') ? 'border-red-500' : 'border-[#cbd5e1]'}`}
           required
         />
+        {showErr('startDate') && <p className="text-red-600 text-sm mt-1">{errors.startDate}</p>}
       </label>
 
       {/* End Date */}
@@ -49,49 +110,64 @@ export default function LeaveForm({ onSubmit, onCancel, initial }) {
         <span className="block text-sm text-[#4b5563] mb-1">End Date</span>
         <input
           type="date"
+          name="endDate"
           value={form.endDate}
           onChange={update('endDate')}
-          className="w-full p-2 border border-[#cbd5e1] rounded"
+          onBlur={onBlur}
+          className={`w-full p-2 border rounded ${showErr('endDate') ? 'border-red-500' : 'border-[#cbd5e1]'}`}
           required
         />
+        {showErr('endDate') && <p className="text-red-600 text-sm mt-1">{errors.endDate}</p>}
       </label>
 
       {/* Leave Type */}
       <label className="block">
         <span className="block text-sm text-[#4b5563] mb-1">Leave Type</span>
         <select
+          name="leaveType"
           value={form.leaveType}
           onChange={update('leaveType')}
-          className="w-full p-2 border border-[#cbd5e1] rounded bg-white"
+          onBlur={onBlur}
+          className={`w-full p-2 border rounded bg-white ${showErr('leaveType') ? 'border-red-500' : 'border-[#cbd5e1]'}`}
         >
-          <option>Annual</option>
-          <option>Sick</option>
-          <option>Casual</option>
-          <option>Unpaid</option>
-          <option>Study</option>
-          <option>Other</option>
+          {LEAVE_TYPES.map((t) => (
+            <option key={t} value={t}>{t}</option>
+          ))}
         </select>
+        {showErr('leaveType') && <p className="text-red-600 text-sm mt-1">{errors.leaveType}</p>}
       </label>
 
       {/* Reason */}
       <label className="block">
-        <span className="block text-sm text-[#4b5563] mb-1">Reason (optional)</span>
+        <span className="block text-sm text-[#4b5563] mb-1">
+          Reason (optional) <span className="text-xs text-gray-500">(max 500 chars)</span>
+        </span>
         <textarea
+          name="reason"
           rows={3}
           value={form.reason}
           onChange={update('reason')}
-          className="w-full p-2 border border-[#cbd5e1] rounded"
-          placeholder="Add a short reason here…"
+          onBlur={onBlur}
+          className={`w-full p-2 border rounded ${showErr('reason') ? 'border-red-500' : 'border-[#cbd5e1]'}`}
+          placeholder="Add a short reason…"
         />
+        <div className="flex justify-between">
+          {showErr('reason') && <p className="text-red-600 text-sm mt-1">{errors.reason}</p>}
+          <p className="text-xs text-gray-500 ml-auto">{form.reason.length}/500</p>
+        </div>
       </label>
 
       <div className="flex gap-2 pt-2">
         <button
           type="submit"
-          className="bg-[#1e3a8a] hover:bg-[#3b82f6] text-white px-4 py-2 rounded"
+          disabled={submitting || hasErrors}
+          className={`text-white px-4 py-2 rounded ${
+            hasErrors ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#1e3a8a] hover:bg-[#3b82f6]'
+          }`}
         >
-          Submit Request
+          {submitting ? 'Submitting…' : 'Submit Request'}
         </button>
+
         {onCancel && (
           <button
             type="button"
