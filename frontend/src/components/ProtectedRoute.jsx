@@ -1,20 +1,21 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const ProtectedRoute = ({ children, role }) => {
+export default function ProtectedRoute({ children, role }) {
   const { token, user, loading } = useAuth();
 
-  if (loading) return null; 
+  // While restoring session from localStorage
+  if (loading) return null; // or a spinner
 
-  // Not logged in → go to login
-  if (!token) return <Navigate to="/login" replace state={{ msg: 'Please log in to continue.' }}/>;
+  // Not logged in → send to login
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
 
-  
+  // Role-gated route (e.g., admin-only)
   if (role && user?.role !== role) {
-    return <Navigate to="/shifts" replace state={{ msg: 'You do not have permission to view that page.' }}/>;
+    return <Navigate to="/shifts" replace />;
   }
 
   return children;
-};
-
-export default ProtectedRoute;
+}
