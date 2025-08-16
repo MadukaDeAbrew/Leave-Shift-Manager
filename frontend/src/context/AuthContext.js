@@ -1,3 +1,4 @@
+// frontend/src/context/AuthContext.js
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import axiosInstance from '../axiosConfig';
 
@@ -15,17 +16,20 @@ export const AuthProvider = ({ children }) => {
       if (saved?.token) {
         setToken(saved.token);
         setUser(saved.user || null);
-        axiosInstance.defaults.headers.common.Authorization = `Bearer ${saved.token}`;
+        axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${saved.token}`;
       }
-    } catch {/* ignore */}
-    setLoading(false);
+    } catch {
+      // ignore malformed storage
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   // Login: save token+user, set default header, persist
   const login = (jwt, userObj) => {
     setToken(jwt);
     setUser(userObj || null);
-    axiosInstance.defaults.headers.common.Authorization = `Bearer ${jwt}`;
+    axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${jwt}`;
     localStorage.setItem('auth', JSON.stringify({ token: jwt, user: userObj || null }));
   };
 
@@ -33,14 +37,16 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     setToken(null);
     setUser(null);
-     //3.1 clear axios Authorization header
-    delete axiosInstance.defaults.headers.common.Authorization;
+    delete axiosInstance.defaults.headers.common['Authorization'];
     localStorage.removeItem('auth');
-    localStorage.removeItem('user');
   };
-   const isAdmin = !!user && user.role === 'admin';
 
-  const value = useMemo(() => ({ token, user, loading, login, logout }), [token, user, loading]);
+  const isAdmin = !!user && user.role === 'admin';
+
+  const value = useMemo(
+    () => ({ token, user, isAdmin, loading, login, logout }),
+    [token, user, isAdmin, loading]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

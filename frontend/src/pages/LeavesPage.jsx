@@ -82,8 +82,12 @@ export default function LeavesPage() {
         </div>
       )}
 
-      {/* Create form (disable while submitting) */}
-      <LeaveForm key={formKey} onSubmit={handleCreate} disabled={submitting} />
+      <LeaveForm
+  key={formKey}
+  onSubmit={handleCreate}   // ✅ pass onSubmit
+  disabled={submitting}     // ✅ pass disabled
+/>
+
 
       {/* History list */}
       <div className="mt-6 bg-white border border-[#cbd5e1] rounded shadow overflow-x-auto">
