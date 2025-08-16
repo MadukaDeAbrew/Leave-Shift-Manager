@@ -6,19 +6,46 @@ const Leave = require('../models/Leave');
  * - Admin: all leaves (populated user)
  * - User: own leaves
  */
+
 const getLeaves = async (req, res) => {
   try {
     const isAdmin = req.user?.role === 'admin';
+
+    // pagination params
+    const page  = Math.max(parseInt(req.query.page || '1', 10), 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit || '10', 10), 1), 100);
+    const skip  = (page - 1) * limit;
+
+    // base filter: admin sees all, user sees own
     const filter = isAdmin ? {} : { userId: req.user.id };
-    const q = Leave.find(filter).sort({ startDate: -1 });
+
+    // optional status filter (exact match)
+    if (req.query.status) {
+      filter.status = req.query.status;
+    }
+
+    // query
+    const q = Leave.find(filter).sort({ startDate: -1 }).skip(skip).limit(limit);
     if (isAdmin) q.populate('userId', 'name email');
-    const leaves = await q.exec();
-    res.json(leaves);
+
+    const [leaves, total] = await Promise.all([
+      q.exec(),
+      Leave.countDocuments(filter),
+    ]);
+
+    res.json({
+      leaves,
+      page,
+      pages: Math.ceil(total / limit) || 1,
+      total,
+      limit,
+    });
   } catch (err) {
     console.error('getLeaves error:', err);
     res.status(500).json({ message: 'Failed to load leaves.' });
   }
 };
+
 
 /**
  * POST /api/leaves
