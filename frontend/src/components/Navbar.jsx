@@ -37,6 +37,9 @@ const Navbar = () => {
                     {user?.role === 'admin' && (
             <Link to="/admin/swaps" className="mr-4 hover:underline">Admin: Swaps</Link> 
   )}
+              {user?.role === 'admin' && (
+                <Link to="/admin/leaves" className="mr-4 hover:underline">Admin: Leaves</Link>
+              )}
 
 
             <button
