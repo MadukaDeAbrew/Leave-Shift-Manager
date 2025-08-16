@@ -39,7 +39,7 @@ import LeavesPage from './pages/LeavesPage';
 import ShiftsPage from './pages/ShiftsPage';
 import MySwapRequests from './pages/MySwapRequests';
 import AdminSwapRequests from './pages/AdminSwapRequests';
-import AdminLeaves from './pages/AdminLeaves'; // <-- add this if you created it
+import AdminLeaves from './pages/AdminLeaves.jsx'; // <-- add this if you created it
 
 export default function App() {
   return (
