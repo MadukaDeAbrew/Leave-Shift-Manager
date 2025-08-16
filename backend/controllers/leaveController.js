@@ -5,8 +5,8 @@ const Leave = require('../models/Leave');
  * GET /api/leaves
  * - Admin: all leaves (populated user)
  * - User: own leaves
+ * Query params: page, limit, status
  */
-
 const getLeaves = async (req, res) => {
   try {
     const isAdmin = req.user?.role === 'admin';
@@ -19,13 +19,16 @@ const getLeaves = async (req, res) => {
     // base filter: admin sees all, user sees own
     const filter = isAdmin ? {} : { userId: req.user.id };
 
-    // optional status filter (exact match)
+    // optional status filter (exact match: Pending/Approved/Rejected/Cancelled)
     if (req.query.status) {
       filter.status = req.query.status;
     }
 
     // query
-    const q = Leave.find(filter).sort({ startDate: -1 }).skip(skip).limit(limit);
+    const q = Leave.find(filter)
+      .sort({ startDate: -1 })
+      .skip(skip)
+      .limit(limit);
     if (isAdmin) q.populate('userId', 'name email');
 
     const [leaves, total] = await Promise.all([
@@ -46,17 +49,17 @@ const getLeaves = async (req, res) => {
   }
 };
 
-
 /**
  * POST /api/leaves
  * - User creates a leave request
+ * Body: { startDate, endDate, reason?, leaveType? }
  */
 const createLeave = async (req, res) => {
   try {
     const { startDate, endDate, reason, leaveType } = req.body;
 
     if (!startDate) return res.status(400).json({ message: 'startDate is required' });
-    if (!endDate) return res.status(400).json({ message: 'endDate is required' });
+    if (!endDate)   return res.status(400).json({ message: 'endDate is required' });
 
     const sd = new Date(startDate);
     const ed = new Date(endDate);
@@ -71,7 +74,7 @@ const createLeave = async (req, res) => {
       userId: req.user.id,
       startDate: sd,
       endDate: ed,
-      reason: reason || '',
+      reason: (reason || '').trim(),
       leaveType: leaveType || 'Annual',
       status: 'Pending',
     });
@@ -86,7 +89,7 @@ const createLeave = async (req, res) => {
 /**
  * PUT /api/leaves/:id
  * - Owner or Admin can update details
- * - (Optional) Only Pending can be edited by non-admin
+ * - Optional: Only Pending can be edited by non-admin (uncomment to enforce)
  */
 const updateLeave = async (req, res) => {
   try {
@@ -102,16 +105,16 @@ const updateLeave = async (req, res) => {
 
     const { startDate, endDate, reason, leaveType, status } = req.body;
 
-    // Optional: block non-admin from editing non-Pending
-    // if (!isAdmin && leave.status !== 'Pending') {
-    //   return res.status(400).json({ message: 'Only Pending leaves can be updated by user' });
-    // }
+    //  block edits on non-Pending leaves for users:
+    if (!isAdmin && leave.status !== 'Pending') {
+      return res.status(400).json({ message: 'Only Pending leaves can be updated by user' });
+    }
 
     if (startDate !== undefined) leave.startDate = startDate;
-    if (endDate !== undefined) leave.endDate = endDate;
-    if (reason !== undefined) leave.reason = reason;
+    if (endDate !== undefined)   leave.endDate   = endDate;
+    if (reason !== undefined)    leave.reason    = reason;
     if (leaveType !== undefined) leave.leaveType = leaveType;
-    if (status !== undefined && isAdmin) leave.status = status;
+    if (status !== undefined && isAdmin) leave.status = status; // only admin can change status
 
     const updated = await leave.save();
     res.json(updated);
@@ -123,7 +126,8 @@ const updateLeave = async (req, res) => {
 
 /**
  * DELETE /api/leaves/:id
- * - Owner can delete only when Pending; Admin can delete always
+ * - Owner can delete only when Pending
+ * - Admin can delete always
  */
 const deleteLeave = async (req, res) => {
   try {
@@ -135,7 +139,9 @@ const deleteLeave = async (req, res) => {
     const isAdmin = req.user.role === 'admin';
 
     if (!isAdmin) {
-      if (!isOwner) return res.status(403).json({ message: 'Not authorized' });
+      if (!isOwner) {
+        return res.status(403).json({ message: 'Not authorized' });
+      }
       if (leave.status !== 'Pending') {
         return res.status(403).json({ message: 'Only Pending leaves can be deleted by user' });
       }
@@ -151,6 +157,7 @@ const deleteLeave = async (req, res) => {
 
 /**
  * PATCH /api/leaves/:id/approve  (Admin)
+ * Sets status to "Approved"
  */
 const approveLeave = async (req, res) => {
   try {
@@ -169,6 +176,7 @@ const approveLeave = async (req, res) => {
 
 /**
  * PATCH /api/leaves/:id/reject  (Admin)
+ * Sets status to "Rejected"
  */
 const rejectLeave = async (req, res) => {
   try {

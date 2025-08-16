@@ -1,6 +1,10 @@
 // backend/routes/leaveRoutes.js
 const express = require('express');
 const router = express.Router();
+const { approveLeave } = require('../controllers/leaveController');
+const { protect, admin } = require('../middleware/authMiddleware');
+const role = require('../middleware/roleMiddleware');
+const { protect } = require('../middleware/authMiddleware');
 
 const {
   getLeaves,
@@ -11,8 +15,7 @@ const {
   rejectLeave,
 } = require('../controllers/leaveController');
 
-const { protect } = require('../middleware/authMiddleware');
-const role = require('../middleware/roleMiddleware');
+
 
 // Protect all /api/leaves routes
 router.use(protect);
