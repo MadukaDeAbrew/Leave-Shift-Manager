@@ -3,7 +3,7 @@ import axiosInstance from '../axiosConfig';
 import LeaveForm from '../components/LeaveForm';
 
 const STATUS_TABS = ['All', 'Pending', 'Approved', 'Rejected'];
-const LIMIT = 10; // rows per page
+const LIMIT = 10;
 
 export default function LeavesPage() {
   const [rows, setRows] = useState([]);
@@ -19,21 +19,14 @@ export default function LeavesPage() {
   const [formKey, setFormKey] = useState(0);
   const alertRef = useRef(null);
 
-  const queryStatus = useMemo(
-    () => (statusTab === 'All' ? undefined : statusTab),
-    [statusTab]
-  );
+  const queryStatus = useMemo(() => (statusTab === 'All' ? undefined : statusTab), [statusTab]);
 
   const fetchLeaves = async () => {
     setErr(''); setOk('');
     try {
       setLoading(true);
       const res = await axiosInstance.get('/api/leaves', {
-        params: {
-          page,
-          limit: LIMIT,
-          ...(queryStatus ? { status: queryStatus } : {}),
-        },
+        params: { page, limit: LIMIT, ...(queryStatus ? { status: queryStatus } : {}) },
       });
       const data = res.data || {};
       setRows(Array.isArray(data.leaves) ? data.leaves : []);
@@ -59,16 +52,15 @@ export default function LeavesPage() {
     }
   }, [ok, err]);
 
-  // Create leave
   const handleCreate = async (form) => {
     setErr(''); setOk('');
     setSubmitting(true);
     try {
-      await axiosInstance.post('/api/leaves', form); // ✅ fixed path
+      await axiosInstance.post('/api/leaves', form);
       setOk('Leave request submitted successfully.');
-      setFormKey(k => k + 1); // reset form
-      setPage(1);             // go to first page to see newest
-      fetchLeaves();          // refresh list
+      setFormKey(k => k + 1);
+      setPage(1);
+      fetchLeaves();
     } catch (e) {
       const status = e?.response?.status;
       const msg = e?.response?.data?.message || e?.message || 'Failed to submit leave request.';
@@ -79,16 +71,20 @@ export default function LeavesPage() {
     }
   };
 
-  // Optional: cancel pending leave
+  // ✅ NEW: Cancel (delete) a Pending leave
   const cancelLeave = async (id) => {
     if (!window.confirm('Cancel this leave request?')) return;
     setErr(''); setOk('');
     try {
       await axiosInstance.delete(`/api/leaves/${id}`);
-      setRows(prev => prev.filter(l => l._id !== id));
+      // Optimistic remove
+      setRows(prev => prev.filter(r => r._id !== id));
       setOk('Leave request cancelled.');
     } catch (e) {
-      setErr(e?.response?.data?.message || 'Failed to cancel leave request.');
+      const status = e?.response?.status;
+      const msg = e?.response?.data?.message || e?.message || 'Failed to cancel leave.';
+      console.error('Cancel leave failed:', status, msg);
+      setErr(`Failed to cancel leave${status ? ` (HTTP ${status})` : ''}. ${msg}`);
     }
   };
 
@@ -141,6 +137,7 @@ export default function LeavesPage() {
         ))}
       </div>
 
+      {/* Success/Error banners (used for cancel messages too) */}
       {(ok || err) && (
         <div
           ref={alertRef}
@@ -174,7 +171,6 @@ export default function LeavesPage() {
                 <th className="text-left p-3 border-b">Type</th>
                 <th className="text-left p-3 border-b">Reason</th>
                 <th className="text-left p-3 border-b">Status</th>
-                <th className="text-left p-3 border-b">Employee</th>
                 <th className="text-left p-3 border-b">Actions</th>
               </tr>
             </thead>
@@ -182,14 +178,16 @@ export default function LeavesPage() {
               {rows.map((l) => (
                 <tr key={l._id} className="hover:bg-[#f9fafb]">
                   <td className="p-3 border-b">{l.startDate ? new Date(l.startDate).toLocaleDateString() : '-'}</td>
-                  <td className="p-3 border-b">{l.endDate ? new Date(l.endDate).toLocaleDateString()
-                    : (l.startDate ? new Date(l.startDate).toLocaleDateString() : '-')}</td>
+                  <td className="p-3 border-b">
+                    {l.endDate
+                      ? new Date(l.endDate).toLocaleDateString()
+                      : (l.startDate ? new Date(l.startDate).toLocaleDateString() : '-')}
+                  </td>
                   <td className="p-3 border-b">{l.leaveType || '-'}</td>
                   <td className="p-3 border-b">{l.reason || '-'}</td>
                   <td className="p-3 border-b">
                     <span className={statusPill(l.status || 'Pending')}>{l.status || 'Pending'}</span>
                   </td>
-                  <td className="p-3 border-b">{l.userId?.name || 'Me'}</td>
                   <td className="p-3 border-b">
                     {l.status === 'Pending' ? (
                       <button
@@ -199,7 +197,7 @@ export default function LeavesPage() {
                         Cancel
                       </button>
                     ) : (
-                      <span className="text-sm text-gray-500">—</span>
+                      <span className="text-sm text-gray-400">—</span>
                     )}
                   </td>
                 </tr>
@@ -212,11 +210,11 @@ export default function LeavesPage() {
       {/* Pager */}
       <div className="mt-4 flex items-center gap-2">
         <button
-          onClick={() => page > 1 && setPage(p => p - 1)}
-          disabled={page <= 1}
+          onClick={() => canPrev && setPage(p => p - 1)}
+          disabled={!canPrev}
           className={`px-3 py-1 rounded border ${
-            page > 1 ? 'bg-white text-[#1e3a8a] border-[#cbd5e1] hover:bg-[#eef2ff]'
-                      : 'bg-gray-100 text-gray-400 border-[#e5e7eb] cursor-not-allowed'
+            canPrev ? 'bg-white text-[#1e3a8a] border-[#cbd5e1] hover:bg-[#eef2ff]'
+                    : 'bg-gray-100 text-gray-400 border-[#e5e7eb] cursor-not-allowed'
           }`}
         >
           Prev
@@ -238,11 +236,11 @@ export default function LeavesPage() {
         </div>
 
         <button
-          onClick={() => page < pages && setPage(p => p + 1)}
-          disabled={page >= pages}
+          onClick={() => canNext && setPage(p => p + 1)}
+          disabled={!canNext}
           className={`px-3 py-1 rounded border ${
-            page < pages ? 'bg-white text-[#1e3a8a] border-[#cbd5e1] hover:bg-[#eef2ff]'
-                         : 'bg-gray-100 text-gray-400 border-[#e5e7eb] cursor-not-allowed'
+            canNext ? 'bg-white text-[#1e3a8a] border-[#cbd5e1] hover:bg-[#eef2ff]'
+                    : 'bg-gray-100 text-gray-400 border-[#e5e7eb] cursor-not-allowed'
           }`}
         >
           Next
