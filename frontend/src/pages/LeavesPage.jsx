@@ -19,13 +19,16 @@ export default function LeavesPage() {
   const [formKey, setFormKey] = useState(0);
   const alertRef = useRef(null);
 
-  const queryStatus = useMemo(() => (statusTab === 'All' ? undefined : statusTab), [statusTab]);
+  const queryStatus = useMemo(
+    () => (statusTab === 'All' ? undefined : statusTab),
+    [statusTab]
+  );
 
   const fetchLeaves = async () => {
     setErr(''); setOk('');
     try {
       setLoading(true);
-      const res = await axiosInstance.get('/leaves', {
+      const res = await axiosInstance.get('/api/leaves', {
         params: {
           page,
           limit: LIMIT,
@@ -46,10 +49,8 @@ export default function LeavesPage() {
     }
   };
 
-  // load whenever page or status changes
   useEffect(() => { fetchLeaves(); }, [page, queryStatus]);
 
-  // auto-dismiss banners & focus 
   useEffect(() => {
     if (ok || err) {
       alertRef.current?.focus();
@@ -63,11 +64,11 @@ export default function LeavesPage() {
     setErr(''); setOk('');
     setSubmitting(true);
     try {
-      await axiosInstance.post('/leaves', form);
+      await axiosInstance.post('/api/leaves', form); // ✅ fixed path
       setOk('Leave request submitted successfully.');
-      setFormKey(k => k + 1);     // reset form
-      setPage(1);                 // go to first page to see newest
-      fetchLeaves();              // refresh list
+      setFormKey(k => k + 1); // reset form
+      setPage(1);             // go to first page to see newest
+      fetchLeaves();          // refresh list
     } catch (e) {
       const status = e?.response?.status;
       const msg = e?.response?.data?.message || e?.message || 'Failed to submit leave request.';
@@ -78,15 +79,27 @@ export default function LeavesPage() {
     }
   };
 
+  // Optional: cancel pending leave
+  const cancelLeave = async (id) => {
+    if (!window.confirm('Cancel this leave request?')) return;
+    setErr(''); setOk('');
+    try {
+      await axiosInstance.delete(`/api/leaves/${id}`);
+      setRows(prev => prev.filter(l => l._id !== id));
+      setOk('Leave request cancelled.');
+    } catch (e) {
+      setErr(e?.response?.data?.message || 'Failed to cancel leave request.');
+    }
+  };
+
   const statusPill = (status) => {
     const base = 'px-2 py-1 rounded text-sm';
     if (status === 'Approved') return `${base} bg-green-100 text-green-800`;
     if (status === 'Rejected') return `${base} bg-red-100 text-red-800`;
     if (status === 'Cancelled') return `${base} bg-gray-100 text-gray-800`;
-    return `${base} bg-yellow-100 text-yellow-800`; // Pending or unknown
+    return `${base} bg-yellow-100 text-yellow-800`;
   };
 
-  // simple pager helpers
   const canPrev = page > 1;
   const canNext = page < pages;
 
@@ -128,7 +141,6 @@ export default function LeavesPage() {
         ))}
       </div>
 
-      {/* Success/Error */}
       {(ok || err) && (
         <div
           ref={alertRef}
@@ -163,6 +175,7 @@ export default function LeavesPage() {
                 <th className="text-left p-3 border-b">Reason</th>
                 <th className="text-left p-3 border-b">Status</th>
                 <th className="text-left p-3 border-b">Employee</th>
+                <th className="text-left p-3 border-b">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -177,6 +190,18 @@ export default function LeavesPage() {
                     <span className={statusPill(l.status || 'Pending')}>{l.status || 'Pending'}</span>
                   </td>
                   <td className="p-3 border-b">{l.userId?.name || 'Me'}</td>
+                  <td className="p-3 border-b">
+                    {l.status === 'Pending' ? (
+                      <button
+                        onClick={() => cancelLeave(l._id)}
+                        className="px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700"
+                      >
+                        Cancel
+                      </button>
+                    ) : (
+                      <span className="text-sm text-gray-500">—</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -187,27 +212,25 @@ export default function LeavesPage() {
       {/* Pager */}
       <div className="mt-4 flex items-center gap-2">
         <button
-          onClick={() => canPrev && setPage(p => p - 1)}
-          disabled={!canPrev}
+          onClick={() => page > 1 && setPage(p => p - 1)}
+          disabled={page <= 1}
           className={`px-3 py-1 rounded border ${
-            canPrev ? 'bg-white text-[#1e3a8a] border-[#cbd5e1] hover:bg-[#eef2ff]'
-                    : 'bg-gray-100 text-gray-400 border-[#e5e7eb] cursor-not-allowed'
+            page > 1 ? 'bg-white text-[#1e3a8a] border-[#cbd5e1] hover:bg-[#eef2ff]'
+                      : 'bg-gray-100 text-gray-400 border-[#e5e7eb] cursor-not-allowed'
           }`}
         >
           Prev
         </button>
 
-        {/* show up to 5 numbered buttons around current page */}
         <div className="flex gap-1">
           {Array.from({ length: pages }, (_, i) => i + 1)
-            .filter(n => Math.abs(n - page) <= 2 || n === 1 || n === pages) 
+            .filter(n => Math.abs(n - page) <= 2 || n === 1 || n === pages)
             .map((n, idx, arr) => {
-              
               const prev = arr[idx - 1];
-              const showDots = prev && n - prev > 1;
+              const dots = prev && n - prev > 1;
               return (
                 <span key={n} className="flex items-center">
-                  {showDots && <span className="mx-1 text-gray-400">…</span>}
+                  {dots && <span className="mx-1 text-gray-400">…</span>}
                   <PageBadge n={n} />
                 </span>
               );
@@ -215,11 +238,11 @@ export default function LeavesPage() {
         </div>
 
         <button
-          onClick={() => canNext && setPage(p => p + 1)}
-          disabled={!canNext}
+          onClick={() => page < pages && setPage(p => p + 1)}
+          disabled={page >= pages}
           className={`px-3 py-1 rounded border ${
-            canNext ? 'bg-white text-[#1e3a8a] border-[#cbd5e1] hover:bg-[#eef2ff]'
-                    : 'bg-gray-100 text-gray-400 border-[#e5e7eb] cursor-not-allowed'
+            page < pages ? 'bg-white text-[#1e3a8a] border-[#cbd5e1] hover:bg-[#eef2ff]'
+                         : 'bg-gray-100 text-gray-400 border-[#e5e7eb] cursor-not-allowed'
           }`}
         >
           Next
