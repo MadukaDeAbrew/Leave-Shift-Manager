@@ -160,12 +160,14 @@ export default function LeaveForm({ onSubmit, onCancel, initial, allowPast = fal
       <div className="flex gap-2 pt-2">
         <button
           type="submit"
-          disabled={submitting || hasErrors}
+          disabled={disabled || submitting || hasErrors}
           className={`text-white px-4 py-2 rounded ${
-            hasErrors ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#1e3a8a] hover:bg-[#3b82f6]'
+            disabled || submitting || hasErrors
+              ? 'bg-gray-400 cursor-not-allowed'
+              : 'bg-[#1e3a8a] hover:bg-[#3b82f6]'
           }`}
         >
-          {submitting ? 'Submitting…' : 'Submit Request'}
+          {disabled || submitting ? 'Submitting…' : 'Submit Request'}
         </button>
 
         {onCancel && (

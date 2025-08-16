@@ -1,18 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import axiosInstance from '../axiosConfig';
 import LeaveForm from '../components/LeaveForm';
 
 export default function LeavesPage() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState('');
+
+  // 4.5: banners + submitting + form reset
   const [ok, setOk] = useState('');
+  const [err, setErr] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [formKey, setFormKey] = useState(0); // remount form to reset after success
+  const alertRef = useRef(null);
 
   const fetchLeaves = async () => {
     setErr(''); setOk('');
     try {
       setLoading(true);
-      // If your axiosInstance baseURL already ends with /api, use '/leaves' instead
+      // If your axios baseURL already includes /api, use '/leaves' instead
       const res = await axiosInstance.get('/api/leaves');
       const data = Array.isArray(res.data) ? res.data : (res.data?.leaves || []);
       setRows(data);
@@ -25,17 +30,28 @@ export default function LeavesPage() {
 
   useEffect(() => { fetchLeaves(); }, []);
 
-  // 4.3: wire UI form to backend
+  // 4.5: auto-dismiss banners & focus for accessibility
+  useEffect(() => {
+    if (ok || err) {
+      alertRef.current?.focus();
+      const t = setTimeout(() => { setOk(''); setErr(''); }, 3000);
+      return () => clearTimeout(t);
+    }
+  }, [ok, err]);
+
+  // 4.3 + 4.5
   const handleCreate = async (form) => {
     setErr(''); setOk('');
+    setSubmitting(true);
     try {
-      // POST /api/leaves { startDate, endDate, leaveType, reason }
       const res = await axiosInstance.post('/api/leaves', form);
-      // Optimistic prepend, or just refetch:
-      setRows((prev) => [res.data, ...prev]);
-      setOk('Leave request submitted.');
+      setRows(prev => [res.data, ...prev]);  // optimistic prepend
+      setOk('Leave request submitted successfully.');
+      setFormKey(k => k + 1);                // reset LeaveForm
     } catch (e) {
       setErr(e?.response?.data?.message || 'Failed to submit leave request.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -43,12 +59,23 @@ export default function LeavesPage() {
     <div className="max-w-5xl mx-auto mt-8 p-4">
       <h1 className="text-2xl font-bold text-[#1e3a8a] mb-4">Leaves</h1>
 
-      {/* Alerts */}
-      {err && <div className="mb-3 p-2 rounded bg-red-100 text-red-800">{err}</div>}
-      {ok && <div className="mb-3 p-2 rounded bg-green-100 text-green-800">{ok}</div>}
+      {/* 4.5: success/error */}
+      {(ok || err) && (
+        <div
+          ref={alertRef}
+          tabIndex={-1}
+          role="alert"
+          aria-live="assertive"
+          className={`mb-4 p-3 rounded border ${
+            ok ? 'bg-green-50 border-green-300 text-green-800' : 'bg-red-50 border-red-300 text-red-800'
+          }`}
+        >
+          {ok || err}
+        </div>
+      )}
 
-      {/* Create form (from 4.2) */}
-      <LeaveForm onSubmit={handleCreate} />
+      {/* Create form (disable while submitting) */}
+      <LeaveForm key={formKey} onSubmit={handleCreate} disabled={submitting} />
 
       {/* History list */}
       <div className="mt-6 bg-white border border-[#cbd5e1] rounded shadow overflow-x-auto">
@@ -91,7 +118,7 @@ export default function LeavesPage() {
         )}
       </div>
 
-     
+      
       <div className="mt-3">
         <button
           onClick={fetchLeaves}
