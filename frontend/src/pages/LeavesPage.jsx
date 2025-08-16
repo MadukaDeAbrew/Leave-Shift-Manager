@@ -1,3 +1,4 @@
+// frontend/src/pages/LeavesPage.jsx
 import { useEffect, useMemo, useRef, useState } from 'react';
 import axiosInstance from '../axiosConfig';
 import LeaveForm from '../components/LeaveForm';
@@ -18,12 +19,14 @@ export default function LeavesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [formKey, setFormKey] = useState(0);
   const alertRef = useRef(null);
-  
 
-  // NEW: track the row we’re editing (or null)
-  const [editTarget, setEditTarget] = useState(null); // row object
+  // which row is being edited (null when creating)
+  const [editTarget, setEditTarget] = useState(null);
 
-  const queryStatus = useMemo(() => (statusTab === 'All' ? undefined : statusTab), [statusTab]);
+  const queryStatus = useMemo(
+    () => (statusTab === 'All' ? undefined : statusTab),
+    [statusTab]
+  );
 
   const fetchLeaves = async () => {
     setErr(''); setOk('');
@@ -56,13 +59,14 @@ export default function LeavesPage() {
     }
   }, [ok, err]);
 
+  // Create new leave
   const handleCreate = async (form) => {
     setErr(''); setOk('');
     setSubmitting(true);
     try {
       await axiosInstance.post('/api/leaves', form);
       setOk('Leave request submitted successfully.');
-      setFormKey(k => k + 1);
+      setFormKey(k => k + 1); // reset form
       setPage(1);
       fetchLeaves();
     } catch (e) {
@@ -92,7 +96,7 @@ export default function LeavesPage() {
     }
   };
 
-  // ✅ NEW: Save edits for a Pending leave
+  // Save edits for a Pending leave
   const saveEdit = async (patch) => {
     if (!editTarget) return;
     setErr(''); setOk('');
@@ -177,12 +181,12 @@ export default function LeavesPage() {
         </div>
       )}
 
-      {/* Create Form (new request) */}
+      {/* Create Form (shown when not editing) */}
       {!editTarget && (
         <LeaveForm key={formKey} onSubmit={handleCreate} disabled={submitting} />
       )}
 
-      {/* ✅ Inline Edit Panel (reuses LeaveForm with initial values) */}
+      {/* Inline Edit (reuses LeaveForm with initial values) */}
       {editTarget && (
         <div className="mb-6">
           <div className="mb-2 font-semibold text-[#1e3a8a]">
@@ -224,7 +228,9 @@ export default function LeavesPage() {
             <tbody>
               {rows.map((l) => (
                 <tr key={l._id} className="hover:bg-[#f9fafb]">
-                  <td className="p-3 border-b">{l.startDate ? new Date(l.startDate).toLocaleDateString() : '-'}</td>
+                  <td className="p-3 border-b">
+                    {l.startDate ? new Date(l.startDate).toLocaleDateString() : '-'}
+                  </td>
                   <td className="p-3 border-b">
                     {l.endDate
                       ? new Date(l.endDate).toLocaleDateString()
