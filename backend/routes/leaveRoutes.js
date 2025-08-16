@@ -13,6 +13,7 @@ const {
   deleteLeave,
   approveLeave,
   rejectLeave,
+  updateLeaveStatus
 } = require('../controllers/leaveController');
 
 
