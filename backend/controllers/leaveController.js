@@ -94,6 +94,7 @@ const createLeave = async (req, res) => {
 const updateLeave = async (req, res) => {
   try {
     const { id } = req.params;
+    
     const leave = await Leave.findById(id);
     if (!leave) return res.status(404).json({ message: 'Leave not found' });
 
@@ -193,11 +194,47 @@ const rejectLeave = async (req, res) => {
   }
 };
 
+// PATCH /api/leaves/:id/status  (Admin)
+// Body: { status: 'Approved' | 'Rejected', note?: string }
+const updateLeaveStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, note } = req.body;
+
+    // only these statuses may be set via this endpoint
+    const ALLOWED = new Set(['Approved', 'Rejected']);
+    if (!ALLOWED.has(status)) {
+      return res.status(400).json({ message: 'Invalid status. Use Approved or Rejected.' });
+    }
+
+    const leave = await Leave.findById(id);
+    if (!leave) return res.status(404).json({ message: 'Leave not found' });
+
+    // Optional: block changing already-finalized decisions
+    if (leave.status !== 'Pending') {
+      return res.status(400).json({ message: 'Only Pending leaves can be decided.' });
+    }
+
+    leave.status = status;
+    leave.decidedBy = req.user.id;   // admin making the decision
+    leave.decidedAt = new Date();
+    if (typeof note === 'string') leave.decisionNote = note.trim();
+
+    const saved = await leave.save();
+    return res.json(saved);
+  } catch (err) {
+    console.error('updateLeaveStatus error:', err);
+    return res.status(500).json({ message: 'Failed to update leave status.' });
+  }
+};
+
 module.exports = {
   getLeaves,
   createLeave,
   updateLeave,
   deleteLeave,
   approveLeave,
-  rejectLeave,
+  updateLeaveStatus,
+ rejectLeave,
+  
 };

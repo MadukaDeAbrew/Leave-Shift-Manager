@@ -11,14 +11,17 @@ export default function AdminLeaves() {
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [total, setTotal] = useState(0);
-  const [statusTab, setStatusTab] = useState('Pending'); // start on Pending for admins
+  const [statusTab, setStatusTab] = useState('Pending'); // start on Pending
 
   const [loading, setLoading] = useState(true);
   const [ok, setOk] = useState('');
   const [err, setErr] = useState('');
   const alertRef = useRef(null);
 
-  const queryStatus = useMemo(() => (statusTab === 'All' ? undefined : statusTab), [statusTab]);
+  const queryStatus = useMemo(
+    () => (statusTab === 'All' ? undefined : statusTab),
+    [statusTab]
+  );
 
   const fetchLeaves = async () => {
     setErr(''); setOk('');
@@ -63,47 +66,45 @@ export default function AdminLeaves() {
     return `${base} bg-yellow-100 text-yellow-800`; // Pending or unknown
   };
 
-  const approve = async (id) => {
+  // Prefer unified endpoint: PATCH /api/leaves/:id/status {status, note?}
+  // Fallback to /approve or /reject if needed (older backend).
+  const decide = async (id, status, note = '') => {
     try {
-      await axiosInstance.patch(`/api/leaves/${id}/approve`);
-      setOk('Leave approved.');
-      // optimistic update:
-      setRows(prev => prev.map(r => (r._id === id ? { ...r, status: 'Approved' } : r)));
-    } catch (e) {
-      const msg = e?.response?.data?.message || 'Failed to approve.';
-      setErr(msg);
+      setErr(''); setOk('');
+      // Try unified
+      await axiosInstance.patch(`/api/leaves/${id}/status`, { status, note });
+      setOk(`Leave ${status.toLowerCase()}.`);
+      setRows(prev => prev.map(r => (r._id === id ? {
+        ...r,
+        status,
+      } : r)));
+    } catch (e1) {
+      const code = e1?.response?.status;
+      // If unified not present (404), try legacy endpoints
+      if (code === 404 || code === 405) {
+        try {
+          const legacyPath = status === 'Approved' ? 'approve' : 'reject';
+          await axiosInstance.patch(`/api/leaves/${id}/${legacyPath}`);
+          setOk(`Leave ${status.toLowerCase()}.`);
+          setRows(prev => prev.map(r => (r._id === id ? { ...r, status } : r)));
+        } catch (e2) {
+          const msg = e2?.response?.data?.message || 'Failed to update status.';
+          setErr(msg);
+        }
+      } else {
+        const msg = e1?.response?.data?.message || 'Failed to update status.';
+        setErr(msg);
+      }
     }
   };
 
-  const reject = async (id) => {
-    try {
-      await axiosInstance.patch(`/api/leaves/${id}/reject`);
-      setOk('Leave rejected.');
-      setRows(prev => prev.map(r => (r._id === id ? { ...r, status: 'Rejected' } : r)));
-    } catch (e) {
-      const msg = e?.response?.data?.message || 'Failed to reject.';
-      setErr(msg);
-    }
-  };
+  const approve = (id) => decide(id, 'Approved');
+  const reject  = (id) => decide(id, 'Rejected');
 
   const canPrev = page > 1;
   const canNext = page < pages;
 
-  const PageBadge = ({ n }) => (
-    <button
-      onClick={() => setPage(n)}
-      disabled={n === page}
-      className={`px-3 py-1 rounded border ${
-        n === page
-          ? 'bg-[#1e3a8a] text-white border-[#1e3a8a]'
-          : 'bg-white text-[#1e3a8a] border-[#cbd5e1] hover:bg-[#eef2ff]'
-      }`}
-    >
-      {n}
-    </button>
-  );
-
-  // Optional: gate in case a non-admin navigates here
+  // Guard: only admins
   if (user?.role !== 'admin') {
     return (
       <div className="max-w-3xl mx-auto mt-10 p-4">
@@ -175,9 +176,14 @@ export default function AdminLeaves() {
               {rows.map((l) => (
                 <tr key={l._id} className="hover:bg-[#f9fafb]">
                   <td className="p-3 border-b">{l.userId?.name || '-'}</td>
-                  <td className="p-3 border-b">{l.startDate ? new Date(l.startDate).toLocaleDateString() : '-'}</td>
-                  <td className="p-3 border-b">{l.endDate ? new Date(l.endDate).toLocaleDateString()
-                    : (l.startDate ? new Date(l.startDate).toLocaleDateString() : '-')}</td>
+                  <td className="p-3 border-b">
+                    {l.startDate ? new Date(l.startDate).toLocaleDateString() : '-'}
+                  </td>
+                  <td className="p-3 border-b">
+                    {l.endDate
+                      ? new Date(l.endDate).toLocaleDateString()
+                      : (l.startDate ? new Date(l.startDate).toLocaleDateString() : '-')}
+                  </td>
                   <td className="p-3 border-b">{l.leaveType || '-'}</td>
                   <td className="p-3 border-b">{l.reason || '-'}</td>
                   <td className="p-3 border-b">
@@ -222,8 +228,9 @@ export default function AdminLeaves() {
           onClick={() => page > 1 && setPage(p => p - 1)}
           disabled={page <= 1}
           className={`px-3 py-1 rounded border ${
-            page > 1 ? 'bg-white text-[#1e3a8a] border-[#cbd5e1] hover:bg-[#eef2ff]'
-                      : 'bg-gray-100 text-gray-400 border-[#e5e7eb] cursor-not-allowed'
+            page > 1
+              ? 'bg-white text-[#1e3a8a] border-[#cbd5e1] hover:bg-[#eef2ff]'
+              : 'bg-gray-100 text-gray-400 border-[#e5e7eb] cursor-not-allowed'
           }`}
         >
           Prev
@@ -258,8 +265,9 @@ export default function AdminLeaves() {
           onClick={() => page < pages && setPage(p => p + 1)}
           disabled={page >= pages}
           className={`px-3 py-1 rounded border ${
-            page < pages ? 'bg-white text-[#1e3a8a] border-[#cbd5e1] hover:bg-[#eef2ff]'
-                         : 'bg-gray-100 text-gray-400 border-[#e5e7eb] cursor-not-allowed'
+            page < pages
+              ? 'bg-white text-[#1e3a8a] border-[#cbd5e1] hover:bg-[#eef2ff]'
+              : 'bg-gray-100 text-gray-400 border-[#e5e7eb] cursor-not-allowed'
           }`}
         >
           Next
