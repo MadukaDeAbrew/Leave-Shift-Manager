@@ -7,12 +7,11 @@ const ProtectedRoute = ({ children, role }) => {
   if (loading) return null; 
 
   // Not logged in → go to login
-  if (!token) return <Navigate to="/login" replace />;
+  if (!token) return <Navigate to="/login" replace state={{ msg: 'Please log in to continue.' }}/>;
 
-  // Role check (only if a role prop is provided)
+  
   if (role && user?.role !== role) {
-    // You can send to a 403 page if you have one; otherwise back to a safe page
-    return <Navigate to="/shifts" replace />;
+    return <Navigate to="/shifts" replace state={{ msg: 'You do not have permission to view that page.' }}/>;
   }
 
   return children;
