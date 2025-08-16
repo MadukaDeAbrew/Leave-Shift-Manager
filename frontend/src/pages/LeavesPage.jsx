@@ -55,6 +55,14 @@ export default function LeavesPage() {
     }
   };
 
+  const statusPill = (status) => {
+    const base = 'px-2 py-1 rounded text-sm';
+    if (status === 'Approved') return `${base} bg-green-100 text-green-800`;
+    if (status === 'Rejected') return `${base} bg-red-100 text-red-800`;
+    if (status === 'Cancelled') return `${base} bg-gray-100 text-gray-800`;
+    return `${base} bg-yellow-100 text-yellow-800`; // Pending or unknown
+  };
+
   return (
     <div className="max-w-5xl mx-auto mt-8 p-4">
       <h1 className="text-2xl font-bold text-[#1e3a8a] mb-4">Leaves</h1>
