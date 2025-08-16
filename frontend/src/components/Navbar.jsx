@@ -6,8 +6,8 @@ const Navbar = () => {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    logout();
-    navigate('/login');
+    logout();  //3.1
+    //navigate('/login');
   };
 
   return (
@@ -26,7 +26,7 @@ const Navbar = () => {
         {user ? (
           <>
           
-            <Link to="/login" className="mr-4 hover:underline">Login</Link>
+            
 
             <Link to="/shifts" className="mr-4 hover:underline">Shifts</Link>
             <Link to="/leaves" className="mr-4 hover:underline">Leaves</Link>
