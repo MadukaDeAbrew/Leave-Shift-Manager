@@ -5,28 +5,22 @@ import { useAuth } from '../context/AuthContext';
 
 export default function AdminSwapRequests() {
   const { user } = useAuth();
-  if (user?.role !== 'admin') {
-    return (
-      <div className="max-w-3xl mx-auto mt-10 p-4">
-        <div className="p-4 bg-red-50 border border-red-200 text-red-800 rounded">
-          Admin only
-        </div>
-      </div>
-    );
-  }
 
+  // ---- Hooks must be top-level (not conditional) ----
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState('');
   const [ok, setOk] = useState('');
+  const [err, setErr] = useState('');
   const alertRef = useRef(null);
 
-  const load = async () => {
+  // fetch swaps (admin sees all; backend filters non-admin anyway)
+  const fetchSwaps = async () => {
     setErr(''); setOk('');
     try {
       setLoading(true);
       const res = await axiosInstance.get('/api/swaps');
-      setRows(Array.isArray(res.data) ? res.data : []);
+      const list = Array.isArray(res.data) ? res.data : [];
+      setRows(list);
     } catch (e) {
       const msg = e?.response?.data?.message || e?.message || 'Failed to load swap requests.';
       setErr(msg);
@@ -35,7 +29,11 @@ export default function AdminSwapRequests() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    // effect can check role inside, but the hook itself is always called
+    fetchSwaps();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (ok || err) {
@@ -45,33 +43,52 @@ export default function AdminSwapRequests() {
     }
   }, [ok, err]);
 
-  const doApprove = async (id) => {
-    setErr(''); setOk('');
+  const approve = async (id) => {
     try {
       await axiosInstance.patch(`/api/swaps/${id}/approve`);
-      setRows(prev => prev.map(x => x._id === id ? { ...x, status: 'Approved' } : x));
+      setRows(prev => prev.map(r => (r._id === id ? { ...r, status: 'Approved' } : r)));
       setOk('Swap approved.');
     } catch (e) {
-      const msg = e?.response?.data?.message || 'Failed to approve.';
+      const msg = e?.response?.data?.message || 'Failed to approve swap.';
       setErr(msg);
     }
   };
 
-  const doReject = async (id) => {
-    setErr(''); setOk('');
+  const reject = async (id) => {
     try {
       await axiosInstance.patch(`/api/swaps/${id}/reject`);
-      setRows(prev => prev.map(x => x._id === id ? { ...x, status: 'Rejected' } : x));
+      setRows(prev => prev.map(r => (r._id === id ? { ...r, status: 'Rejected' } : r)));
       setOk('Swap rejected.');
     } catch (e) {
-      const msg = e?.response?.data?.message || 'Failed to reject.';
+      const msg = e?.response?.data?.message || 'Failed to reject swap.';
       setErr(msg);
     }
   };
+
+  const fmtDate = (d) => (d ? new Date(d).toLocaleDateString() : '—');
+
+  // ---- Render guard (safe: after hooks) ----
+  if (user?.role !== 'admin') {
+    return (
+      <div className="max-w-3xl mx-auto mt-10 p-4">
+        <div className="p-4 bg-red-50 border border-red-200 text-red-800 rounded">
+          You need admin privileges to view this page.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto mt-8 p-4">
-      <h1 className="text-2xl font-bold text-[#1e3a8a] mb-4">Admin: Swap Requests</h1>
+      <div className="flex items-center justify-between mb-3">
+        <h1 className="text-2xl font-bold text-[#1e3a8a]">Admin: Swap Requests</h1>
+        <button
+          onClick={fetchSwaps}
+          className="bg-white border border-[#cbd5e1] text-[#1e3a8a] px-3 py-1 rounded hover:bg-[#eef2ff]"
+        >
+          Refresh
+        </button>
+      </div>
 
       {(ok || err) && (
         <div
@@ -79,7 +96,10 @@ export default function AdminSwapRequests() {
           tabIndex={-1}
           role="alert"
           aria-live="assertive"
-          className={`mb-4 p-3 rounded border ${ok ? 'bg-green-50 border-green-300 text-green-800' : 'bg-red-50 border-red-300 text-red-800'}`}
+          className={`mb-4 p-3 rounded border ${
+            ok ? 'bg-green-50 border-green-300 text-green-800'
+               : 'bg-red-50 border-red-300 text-red-800'
+          }`}
         >
           {ok || err}
         </div>
@@ -95,8 +115,8 @@ export default function AdminSwapRequests() {
             <thead>
               <tr className="bg-[#eef2ff] text-[#1e3a8a]">
                 <th className="text-left p-3 border-b">Requester</th>
-                <th className="text-left p-3 border-b">From</th>
-                <th className="text-left p-3 border-b">To</th>
+                <th className="text-left p-3 border-b">From Shift</th>
+                <th className="text-left p-3 border-b">To Shift</th>
                 <th className="text-left p-3 border-b">Reason</th>
                 <th className="text-left p-3 border-b">Status</th>
                 <th className="text-left p-3 border-b">Actions</th>
@@ -106,39 +126,37 @@ export default function AdminSwapRequests() {
               {rows.map((r) => (
                 <tr key={r._id} className="hover:bg-[#f9fafb]">
                   <td className="p-3 border-b">
-                    {r.requester?.name || '—'}{r.requester?.email ? ` (${r.requester.email})` : ''}
+                    {r.requester?.name || '—'}
+                    {r.requester?.email && <span className="text-xs text-gray-500 ml-1">({r.requester.email})</span>}
                   </td>
                   <td className="p-3 border-b">
-                    {r.fromShiftId?.shiftDate ? new Date(r.fromShiftId.shiftDate).toLocaleDateString() : '—'}
-                    {' • '}
-                    {r.fromShiftId?.startTime || '—'}–{r.fromShiftId?.endTime || '—'}
-                    {' • '}
-                    {r.fromShiftId?.role || '—'}
-                    {r.fromShiftId?.userId?.name ? ` • ${r.fromShiftId.userId.name}` : ' • Unassigned'}
+                    {fmtDate(r.fromShiftId?.shiftDate)} • {r.fromShiftId?.startTime || '—'}–{r.fromShiftId?.endTime || '—'}
+                    {r.fromShiftId?.userId?.name && (
+                      <span className="text-xs text-gray-500 ml-1">({r.fromShiftId.userId.name})</span>
+                    )}
                   </td>
                   <td className="p-3 border-b">
-                    {r.toShiftId?.shiftDate ? new Date(r.toShiftId.shiftDate).toLocaleDateString() : '—'}
-                    {' • '}
-                    {r.toShiftId?.startTime || '—'}–{r.toShiftId?.endTime || '—'}
-                    {' • '}
-                    {r.toShiftId?.role || '—'}
-                    {r.toShiftId?.userId?.name ? ` • ${r.toShiftId.userId.name}` : ' • Unassigned'}
+                    {fmtDate(r.toShiftId?.shiftDate)} • {r.toShiftId?.startTime || '—'}–{r.toShiftId?.endTime || '—'}
+                    {r.toShiftId?.userId?.name && (
+                      <span className="text-xs text-gray-500 ml-1">({r.toShiftId.userId.name})</span>
+                    )}
                   </td>
                   <td className="p-3 border-b">{r.reason || '—'}</td>
                   <td className="p-3 border-b">
-                    <span className={`px-2 py-1 rounded text-sm ${
-                      r.status === 'Approved' ? 'bg-green-100 text-green-800'
-                      : r.status === 'Rejected' ? 'bg-red-100 text-red-800'
-                      : r.status === 'Cancelled' ? 'bg-gray-100 text-gray-800'
-                      : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {r.status}
+                    <span
+                      className={`px-2 py-1 rounded text-sm ${
+                        r.status === 'Approved' ? 'bg-green-100 text-green-800'
+                        : r.status === 'Rejected' ? 'bg-red-100 text-red-800'
+                        : 'bg-yellow-100 text-yellow-800'
+                      }`}
+                    >
+                      {r.status || 'Pending'}
                     </span>
                   </td>
                   <td className="p-3 border-b">
                     <div className="flex gap-2">
                       <button
-                        onClick={() => doApprove(r._id)}
+                        onClick={() => approve(r._id)}
                         disabled={r.status !== 'Pending'}
                         className={`px-3 py-1 rounded ${
                           r.status !== 'Pending'
@@ -149,7 +167,7 @@ export default function AdminSwapRequests() {
                         Approve
                       </button>
                       <button
-                        onClick={() => doReject(r._id)}
+                        onClick={() => reject(r._id)}
                         disabled={r.status !== 'Pending'}
                         className={`px-3 py-1 rounded ${
                           r.status !== 'Pending'
