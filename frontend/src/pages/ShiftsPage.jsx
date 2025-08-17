@@ -3,13 +3,10 @@ import { useEffect, useRef, useState } from 'react';
 import axiosInstance from '../axiosConfig';
 import { useAuth } from '../context/AuthContext';
 import ShiftForm from '../components/ShiftForm';
-import ShiftDayView from '../components/ShiftDayView'; // 9.3
-import SwapRequestForm from '../components/SwapRequestForm'; // 11.1
+import SwapRequestForm from '../components/SwapRequestForm';
 
 const LIMIT = 10;
-const STATUS_OPTIONS = ['All', 'Scheduled', 'Completed', 'Cancelled'];
 
-// Lightweight modal
 function Modal({ open, onClose, children, title = 'Dialog' }) {
   if (!open) return null;
   return (
@@ -18,9 +15,7 @@ function Modal({ open, onClose, children, title = 'Dialog' }) {
       <div className="relative z-50 w-[95%] max-w-2xl bg-white rounded-xl border border-[#cbd5e1] shadow p-4">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-lg font-semibold text-[#1e3a8a]">{title}</h3>
-          <button onClick={onClose} className="px-2 py-1 rounded border border-[#cbd5e1] hover:bg-[#f3f4f6]">
-            Close
-          </button>
+          <button onClick={onClose} className="px-2 py-1 rounded border border-[#cbd5e1] hover:bg-[#f3f4f6]">Close</button>
         </div>
         {children}
       </div>
@@ -42,53 +37,19 @@ export default function ShiftsPage() {
   const [err, setErr] = useState('');
   const alertRef = useRef(null);
 
-  // View toggle
-  const [viewMode, setViewMode] = useState('table'); // 'table' | 'day'
-
-  // Create/Edit modals
+  // Create/Edit shift modal
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
 
-  // Swap modal
+  // Swap request modal
   const [showSwap, setShowSwap] = useState(false);
   const [swapSource, setSwapSource] = useState(null);
-
-  // -------- Filters --------
-  const [filters, setFilters] = useState({
-    start: '',
-    end: '',
-    role: '',
-    status: 'All',
-  });
-  const [filtersVersion, setFiltersVersion] = useState(0); // bump to refetch
-
-  const updateFilter = (name) => (e) => setFilters((f) => ({ ...f, [name]: e.target.value }));
-
-  const resetFilters = () => {
-    setFilters({ start: '', end: '', role: '', status: 'All' });
-    setPage(1);
-    setFiltersVersion((v) => v + 1);
-  };
-
-  const applyFilters = () => {
-    setPage(1);
-    setFiltersVersion((v) => v + 1);
-  };
-
-  const buildParams = () => {
-    const params = { page, limit: LIMIT };
-    if (filters.start) params.start = filters.start; // YYYY-MM-DD
-    if (filters.end) params.end = filters.end; // YYYY-MM-DD
-    if (filters.role?.trim()) params.role = filters.role.trim();
-    if (filters.status && filters.status !== 'All') params.status = filters.status;
-    return params;
-  };
 
   const fetchShifts = async () => {
     setErr(''); setOk('');
     try {
       setLoading(true);
-      const res = await axiosInstance.get('/api/shifts', { params: buildParams() });
+      const res = await axiosInstance.get('/api/shifts', { params: { page, limit: LIMIT } });
       const data = res.data || {};
       setShifts(Array.isArray(data.shifts) ? data.shifts : []);
       setPages(data.pages || 1);
@@ -96,14 +57,13 @@ export default function ShiftsPage() {
     } catch (e) {
       const status = e?.response?.status;
       const msg = e?.response?.data?.message || e?.message || 'Failed to load shifts.';
-      console.error('Load shifts failed:', status, msg);
       setErr(`Failed to load shifts${status ? ` (HTTP ${status})` : ''}. ${msg}`);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchShifts(); /* eslint-disable-next-line */ }, [page, filtersVersion]);
+  useEffect(() => { fetchShifts(); }, [page]);
 
   useEffect(() => {
     if (ok || err) {
@@ -130,7 +90,7 @@ export default function ShiftsPage() {
   };
 
   const removeShift = async (id) => {
-    if (!window.confirm('Delete this shift?')) return;
+    if (!window.confirm('Are you sure you want to delete this shift?')) return;
     try {
       await axiosInstance.delete(`/api/shifts/${id}`);
       setShifts(prev => prev.filter(s => s._id !== id));
@@ -141,11 +101,15 @@ export default function ShiftsPage() {
     }
   };
 
-  // Determine if a shift belongs to current user (supports _id/id as string or object)
-  const isMine = (s) => {
-    const myId = user?._id || user?.id;
-    const uid = (typeof s.userId === 'string') ? s.userId : s.userId?._id || s.userId?.id;
-    return myId && uid && String(uid) === String(myId);
+  const startSwap = (row) => {
+    setSwapSource(row);
+    setShowSwap(true);
+  };
+
+  const afterSwapSaved = () => {
+    setOk('Swap request submitted.');
+    setShowSwap(false);
+    setSwapSource(null);
   };
 
   const canPrev = page > 1;
@@ -165,99 +129,15 @@ export default function ShiftsPage() {
     </button>
   );
 
+  const isOwnShift = (s) => s?.userId?._id === user?._id || s?.userId === user?._id;
+
   return (
     <div className="max-w-6xl mx-auto mt-8 p-4">
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-[#1e3a8a]">Shifts</h1>
         <div className="text-sm text-[#4b5563]">Total: {total}</div>
       </div>
 
-      {/* Filters */}
-      <div className="mb-4 bg-white border border-[#cbd5e1] rounded p-3">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="block">
-            <span className="block text-sm text-[#4b5563] mb-1">From (date)</span>
-            <input
-              type="date"
-              value={filters.start}
-              onChange={updateFilter('start')}
-              className="w-full p-2 border rounded border-[#cbd5e1]"
-            />
-          </label>
-
-          <label className="block">
-            <span className="block text-sm text-[#4b5563] mb-1">To (date)</span>
-            <input
-              type="date"
-              value={filters.end}
-              onChange={updateFilter('end')}
-              className="w-full p-2 border rounded border-[#cbd5e1]"
-            />
-          </label>
-
-          <label className="block">
-            <span className="block text-sm text-[#4b5563] mb-1">Role</span>
-            <input
-              type="text"
-              placeholder="e.g., Nurse"
-              value={filters.role}
-              onChange={updateFilter('role')}
-              className="w-full p-2 border rounded border-[#cbd5e1]"
-            />
-          </label>
-
-          <label className="block">
-            <span className="block text-sm text-[#4b5563] mb-1">Status</span>
-            <select
-              value={filters.status}
-              onChange={updateFilter('status')}
-              className="w-full p-2 border rounded border-[#cbd5e1] bg-white"
-            >
-              {STATUS_OPTIONS.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <div className="mt-3 flex gap-2">
-          <button
-            onClick={applyFilters}
-            className="bg-[#1e3a8a] hover:bg-[#3b82f6] text-white px-4 py-2 rounded"
-          >
-            Apply
-          </button>
-          <button
-            onClick={resetFilters}
-            className="bg-white border border-[#cbd5e1] text-[#1e3a8a] px-4 py-2 rounded hover:bg-[#eef2ff]"
-          >
-            Reset
-          </button>
-        </div>
-      </div>
-
-      {/* View toggle */}
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-sm text-[#4b5563]">View:</span>
-        <button
-          onClick={() => setViewMode('table')}
-          className={`px-3 py-1 rounded border ${viewMode === 'table'
-            ? 'bg-[#1e3a8a] text-white border-[#1e3a8a]'
-            : 'bg-white text-[#1e3a8a] border-[#cbd5e1] hover:bg-[#eef2ff]'}`}
-        >
-          Table
-        </button>
-        <button
-          onClick={() => setViewMode('day')}
-          className={`px-3 py-1 rounded border ${viewMode === 'day'
-            ? 'bg-[#1e3a8a] text-white border-[#1e3a8a]'
-            : 'bg-white text-[#1e3a8a] border-[#cbd5e1] hover:bg-[#eef2ff]'}`}
-        >
-          Day View
-        </button>
-      </div>
-
-      {/* Success/Error */}
       {(ok || err) && (
         <div
           ref={alertRef}
@@ -273,7 +153,6 @@ export default function ShiftsPage() {
         </div>
       )}
 
-      {/* Admin controls */}
       {isAdmin && (
         <div className="mb-4">
           <button
@@ -285,23 +164,11 @@ export default function ShiftsPage() {
         </div>
       )}
 
-      {/* Shifts area: conditionally render Table vs Day View */}
       <div className="bg-white border border-[#cbd5e1] rounded shadow overflow-x-auto">
         {loading ? (
           <div className="p-4">Loading…</div>
         ) : shifts.length === 0 ? (
           <div className="p-4 text-[#4b5563]">No shifts found.</div>
-        ) : viewMode === 'day' ? (
-          <div className="p-3">
-            <ShiftDayView
-              shifts={shifts}
-              isAdmin={isAdmin}
-              onEdit={(row) => openEdit(row)}
-              onDelete={(id) => removeShift(id)}
-              // If your ShiftDayView supports it, you can also pass:
-              // onSwap={(row) => { setSwapSource(row); setShowSwap(true); }}
-            />
-          </div>
         ) : (
           <table className="min-w-full">
             <thead>
@@ -326,9 +193,7 @@ export default function ShiftsPage() {
                       ) : null}
                     </td>
                   )}
-                  <td className="p-3 border-b">
-                    {s.shiftDate ? new Date(s.shiftDate).toLocaleDateString() : '—'}
-                  </td>
+                  <td className="p-3 border-b">{s.shiftDate ? new Date(s.shiftDate).toLocaleDateString() : '—'}</td>
                   <td className="p-3 border-b">{s.startTime || '—'}</td>
                   <td className="p-3 border-b">{s.endTime || '—'}</td>
                   <td className="p-3 border-b">{s.role || '—'}</td>
@@ -351,15 +216,17 @@ export default function ShiftsPage() {
                           </button>
                         </>
                       ) : (
-                        // Non-admin actions: allow swap on own Scheduled shift
-                        isMine(s) && (s.status || 'Scheduled') === 'Scheduled' && (
-                          <button
-                            onClick={() => { setSwapSource(s); setShowSwap(true); }}
-                            className="px-3 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-700"
-                          >
-                            Request Swap
-                          </button>
-                        )
+                        <>
+                          {isOwnShift(s) && (
+                            <button
+                              onClick={() => startSwap(s)}
+                              className="px-3 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-700"
+                            >
+                              Request Swap
+                            </button>
+                          )}
+                          {!isOwnShift(s) && <span className="text-sm text-gray-400">—</span>}
+                        </>
                       )}
                     </div>
                   </td>
@@ -410,7 +277,7 @@ export default function ShiftsPage() {
         </button>
       </div>
 
-      {/* Modal: Create/Edit Shift */}
+      {/* Create/Edit Shift */}
       <Modal
         open={showForm}
         onClose={() => { setShowForm(false); setEditTarget(null); }}
@@ -423,21 +290,19 @@ export default function ShiftsPage() {
         />
       </Modal>
 
-      {/* Modal: Request Swap */}
+      {/* Request Swap */}
       <Modal
         open={showSwap}
         onClose={() => { setShowSwap(false); setSwapSource(null); }}
         title="Request Shift Swap"
       >
-        <SwapRequestForm
-          sourceShift={swapSource}
-          onClose={() => { setShowSwap(false); setSwapSource(null); }}
-          onSaved={() => {
-            setOk('Swap request submitted.');
-            setShowSwap(false);
-            setSwapSource(null);
-          }}
-        />
+        {swapSource && (
+          <SwapRequestForm
+            sourceShift={swapSource}
+            onClose={() => { setShowSwap(false); setSwapSource(null); }}
+            onSaved={afterSwapSaved}
+          />
+        )}
       </Modal>
     </div>
   );

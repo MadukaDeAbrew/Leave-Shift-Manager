@@ -1,18 +1,19 @@
+// backend/routes/swapRoutes.js
 const express = require('express');
 const router = express.Router();
+const { createSwap, listMine, listAll, cancelMine, updateStatus } = require('../controllers/swapController');
 const { protect } = require('../middleware/authMiddleware');
-const {
-  listSwaps,
-  createSwap,
-  approveSwap,
-  rejectSwap,
-  cancelSwap,
-} = require('../controllers/swapController');
+const { admin } = require('../middleware/roleMiddleware');
 
-router.get('/', protect, listSwaps);
+// user creates
 router.post('/', protect, createSwap);
-router.patch('/:id/approve', protect, approveSwap);
-router.patch('/:id/reject',  protect, rejectSwap);
-router.delete('/:id', protect, cancelSwap);
+// user lists own
+router.get('/mine', protect, listMine);
+// admin lists all
+router.get('/', protect, admin, listAll);
+// user cancels own (delete)
+router.delete('/:id', protect, cancelMine);
+// admin sets status
+router.patch('/:id/status', protect, admin, updateStatus);
 
 module.exports = router;

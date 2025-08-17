@@ -1,42 +1,35 @@
+// frontend/src/components/ShiftForm.jsx
 import { useEffect, useMemo, useState } from 'react';
 import axiosInstance from '../axiosConfig';
 import { useAuth } from '../context/AuthContext';
 
-/**
- * Admin-only Shift assignment form
- * Props:
- *  - onClose?: () => void
- *  - onSaved?: (savedShift) => void
- *  - initial?: existing shift
- *
- * Notes:
- *  - If /api/users exists, we'll show a user select (but it's optional).
- *  - If it does not, we show an optional email field.
- */
 export default function ShiftForm({ onClose, onSaved, initial }) {
   const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+
   const [useUserList, setUseUserList] = useState(true);
+  const [users, setUsers] = useState([]);
 
   const [assignee, setAssignee] = useState({
     userId: initial?.userId?._id || initial?.userId || '',
-    email: '',
   });
 
   const [form, setForm] = useState({
-    shiftDate: initial?.shiftDate?.slice(0, 10) || '',
+    shiftDate: initial?.shiftDate ? String(initial.shiftDate).slice(0,10) : '',
     startTime: initial?.startTime || '',
     endTime:   initial?.endTime || '',
     role:      initial?.role || '',
   });
 
-  const [users, setUsers] = useState([]);
   const [touched, setTouched] = useState({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [ok, setOk] = useState('');
 
+  // admin-only list users (if available)
   useEffect(() => {
     const loadUsers = async () => {
+      if (!isAdmin) return;
       try {
         const res = await axiosInstance.get('/api/users', { params: { limit: 1000 } });
         const list = Array.isArray(res.data?.users) ? res.data.users : (Array.isArray(res.data) ? res.data : []);
@@ -47,7 +40,7 @@ export default function ShiftForm({ onClose, onSaved, initial }) {
       }
     };
     loadUsers();
-  }, []);
+  }, [isAdmin]);
 
   const onChange = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }));
   const onBlur = (e) => setTouched((t) => ({ ...t, [e.target.name]: true }));
@@ -61,7 +54,7 @@ export default function ShiftForm({ onClose, onSaved, initial }) {
       e.endTime = 'End time must be after start time.';
     }
     if (!form.role.trim()) e.role = 'Role/Position is required.';
-    // Assignee is OPTIONAL now — no userId/email error here.
+    // assignee optional (unassigned shifts allowed). Only validate when dropdown is shown AND user picked empty on edit if you want to force it.
     return e;
   }, [form]);
 
@@ -72,6 +65,7 @@ export default function ShiftForm({ onClose, onSaved, initial }) {
     e.preventDefault();
     setError(''); setOk('');
     setTouched({ shiftDate: true, startTime: true, endTime: true, role: true });
+
     if (hasErrors) return;
 
     try {
@@ -82,12 +76,8 @@ export default function ShiftForm({ onClose, onSaved, initial }) {
         endTime:   form.endTime,
         role:      form.role.trim(),
       };
-      // Only include an assignee if provided
-      if (useUserList) {
-        if (assignee.userId) payload.userId = assignee.userId;
-      } else if (assignee.email.trim()) {
-        payload.userEmail = assignee.email.trim();
-      }
+      // Only include userId if chosen
+      if (assignee.userId) payload.userId = assignee.userId;
 
       const res = initial?._id
         ? await axiosInstance.put(`/api/shifts/${initial._id}`, payload)
@@ -104,7 +94,7 @@ export default function ShiftForm({ onClose, onSaved, initial }) {
     }
   };
 
-  if (user?.role !== 'admin') return null;
+  if (!isAdmin) return null;
 
   return (
     <form onSubmit={submit} noValidate className="bg-white border border-[#cbd5e1] rounded-xl shadow p-5 grid gap-4">
@@ -174,8 +164,7 @@ export default function ShiftForm({ onClose, onSaved, initial }) {
         {showErr('role') && <p className="text-sm text-red-600 mt-1">{errors.role}</p>}
       </label>
 
-      {/* Optional assignee */}
-      {useUserList ? (
+      {useUserList && (
         <label className="block">
           <span className="block text-sm text-[#4b5563] mb-1">Assign to (optional)</span>
           <select
@@ -191,20 +180,6 @@ export default function ShiftForm({ onClose, onSaved, initial }) {
             ))}
           </select>
         </label>
-      ) : (
-        <label className="block">
-          <span className="block text-sm text-[#4b5563] mb-1">Assignee Email (optional)</span>
-          <input
-            type="email"
-            value={assignee.email}
-            onChange={(e) => setAssignee((a) => ({ ...a, email: e.target.value }))}
-            placeholder="user@example.com"
-            className="w-full p-2 border rounded border-[#cbd5e1]"
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            Leave blank to keep shift unassigned.
-          </p>
-        </label>
       )}
 
       <div className="flex gap-2 pt-2">
@@ -217,7 +192,6 @@ export default function ShiftForm({ onClose, onSaved, initial }) {
         >
           {saving ? 'Saving…' : (initial?._id ? 'Save Changes' : 'Create Shift')}
         </button>
-
         {onClose && (
           <button
             type="button"
