@@ -38,3 +38,50 @@ Admin approval for swap requests
 * **GitHub Account** [[https://github.com/signup?source=login](https://github.com/signup?source=login)]** **
 
 ---
+**Project Setup Instructions**
+1. Clone the repository
+git clone https://github.com/<your-username>/LeaveShiftManager.git
+cd LeaveShiftManager
+
+2. Install dependencies
+
+Backend:
+
+cd backend
+npm install
+
+
+Frontend:
+
+cd ../frontend
+npm install
+
+3. Setup environment variables
+
+Create a .env file in backend directory with:
+
+PORT=5001
+MONGO_URI=<your-mongodb-uri>
+JWT_SECRET=<your-secret-key>
+
+4. Run the project
+
+In one terminal, start the backend:
+
+cd backend
+npm start
+
+
+In another terminal, start the frontend:
+
+cd frontend
+npm start
+
+
+The app will be available at:
+http://localhost:3000 (local development)
+
+Public URL
+
+The deployed project is available at:
+http://<your-ec2-url>:3000
