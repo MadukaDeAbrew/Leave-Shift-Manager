@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import axiosInstance from '../axiosConfig';
 import { useAuth } from '../context/AuthContext';
 import ShiftForm from '../components/ShiftForm';
@@ -14,7 +14,12 @@ function Modal({ open, onClose, children, title = 'Dialog' }) {
       <div className="relative z-50 w-[95%] max-w-2xl bg-white rounded-xl border border-[#cbd5e1] shadow p-4">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-lg font-semibold text-[#1e3a8a]">{title}</h3>
-          <button onClick={onClose} className="px-2 py-1 rounded border border-[#cbd5e1] hover:bg-[#f3f4f6]">Close</button>
+          <button
+            onClick={onClose}
+            className="px-2 py-1 rounded border border-[#cbd5e1] hover:bg-[#f3f4f6]"
+          >
+            Close
+          </button>
         </div>
         {children}
       </div>
@@ -75,7 +80,6 @@ export default function ShiftsPage() {
 
   // Called by ShiftForm after successful POST/PUT
   const handleSaved = (saved) => {
-    // If create, prepend; if edit, replace in list
     setShifts(prev => {
       const idx = prev.findIndex(s => s._id === saved._id);
       if (idx === -1) return [saved, ...prev];
@@ -163,7 +167,7 @@ export default function ShiftsPage() {
           <table className="min-w-full">
             <thead>
               <tr className="bg-[#eef2ff] text-[#1e3a8a]">
-                <th className="text-left p-3 border-b">Employee</th>
+                {isAdmin && <th className="text-left p-3 border-b">Employee</th>}
                 <th className="text-left p-3 border-b">Date</th>
                 <th className="text-left p-3 border-b">Start</th>
                 <th className="text-left p-3 border-b">End</th>
@@ -175,12 +179,19 @@ export default function ShiftsPage() {
             <tbody>
               {shifts.map((s) => (
                 <tr key={s._id} className="hover:bg-[#f9fafb]">
-                  <td className="p-3 border-b">{s.userId?.name || '—'}</td>
+                  {isAdmin && (
+                    <td className="p-3 border-b">
+                      {s.userId?.name || '—'}
+                      {s.userId?.email ? (
+                        <span className="text-xs text-gray-500 ml-1">({s.userId.email})</span>
+                      ) : null}
+                    </td>
+                  )}
                   <td className="p-3 border-b">
                     {s.shiftDate ? new Date(s.shiftDate).toLocaleDateString() : '—'}
                   </td>
-                  <td className="p-3 border-b">{s.startTime}</td>
-                  <td className="p-3 border-b">{s.endTime}</td>
+                  <td className="p-3 border-b">{s.startTime || '—'}</td>
+                  <td className="p-3 border-b">{s.endTime || '—'}</td>
                   <td className="p-3 border-b">{s.role || '—'}</td>
                   <td className="p-3 border-b">{s.status || 'Scheduled'}</td>
                   {isAdmin && (
