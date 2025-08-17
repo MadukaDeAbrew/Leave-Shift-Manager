@@ -13,6 +13,9 @@ app.use(cors());
 app.use(express.json());
 app.use('/api/auth', require('./routes/authRoutes')); //- sp1
 app.use('/api/leaves', require('./routes/leaveRoutes'));
+app.use('/api/shifts', require('./routes/shiftRoutes'));
+
+
 //app.use('/api/tasks', require('./routes/taskRoutes'));
 
 // Export the app object for testing
