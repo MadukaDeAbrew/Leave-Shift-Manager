@@ -1,48 +1,45 @@
-// frontend/src/components/ShiftForm.jsx
 import { useEffect, useMemo, useState } from 'react';
 import axiosInstance from '../axiosConfig';
 import { useAuth } from '../context/AuthContext';
 
-const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/; // HH:MM 24h
-const toMinutes = (t) => {
-  if (!TIME_RE.test(t)) return NaN;
-  const [h, m] = t.split(':').map(Number);
-  return h * 60 + m;
-};
-
+/**
+ * Admin-only Shift assignment form (no 15-min rule)
+ * Props:
+ *  - onClose?: () => void
+ *  - onSaved?: (savedShift) => void
+ *  - initial?: existing shift {_id, userId, shiftDate, startTime, endTime, role}
+ *
+ * If /api/users isn’t available, the component falls back to a plain “assignee email” input.
+ */
 export default function ShiftForm({ onClose, onSaved, initial }) {
   const { user } = useAuth(); // only admins should see this
-
-  const [useUserList, setUseUserList] = useState(true);
-  const [users, setUsers] = useState([]);
+  const [useUserList, setUseUserList] = useState(true); // toggled off when /api/users fails
 
   const [assignee, setAssignee] = useState({
     userId: initial?.userId?._id || initial?.userId || '',
-    email: '',
+    email:  '',
   });
 
   const [form, setForm] = useState({
     shiftDate: initial?.shiftDate?.slice(0, 10) || '',
     startTime: initial?.startTime || '',
-    endTime: initial?.endTime || '',
-    role: initial?.role || '',
-    allowPast: false, // frontend preference flag; sent to backend
-    step15: true,     // require 15-min increments by default
+    endTime:   initial?.endTime || '',
+    role:      initial?.role || '',
   });
 
+  const [users, setUsers] = useState([]);
   const [touched, setTouched] = useState({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [ok, setOk] = useState('');
 
-  // Try to fetch user list (admin only endpoint). If it fails, fall back to email entry.
+  // Try to load users (admin list). If it fails, we’ll ask for email instead.
   useEffect(() => {
     const loadUsers = async () => {
       try {
         const res = await axiosInstance.get('/api/users', { params: { limit: 1000 } });
-        const list = Array.isArray(res.data?.users)
-          ? res.data.users
-          : (Array.isArray(res.data) ? res.data : []);
+        const list = Array.isArray(res.data?.users) ? res.data.users
+                    : (Array.isArray(res.data) ? res.data : []);
         setUsers(list);
         setUseUserList(true);
       } catch {
@@ -52,59 +49,26 @@ export default function ShiftForm({ onClose, onSaved, initial }) {
     loadUsers();
   }, []);
 
-  const onChange = (name) => (e) => {
-    const val = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-    setForm((f) => ({ ...f, [name]: val }));
-  };
+  const onChange = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }));
   const onBlur = (e) => setTouched((t) => ({ ...t, [e.target.name]: true }));
 
+  // Basic validation (no 15-min rule)
   const errors = useMemo(() => {
     const e = {};
-
-    // Date
-    if (!form.shiftDate) {
-      e.shiftDate = 'Date is required.';
-    } else {
-      const d = new Date(form.shiftDate);
-      if (Number.isNaN(d.getTime())) {
-        e.shiftDate = 'Invalid date.';
-      } else if (!form.allowPast) {
-        const today = new Date(); today.setHours(0, 0, 0, 0);
-        const sel = new Date(form.shiftDate); sel.setHours(0, 0, 0, 0);
-        if (sel < today) e.shiftDate = 'Date cannot be in the past.';
-      }
-    }
-
-    // Time
+    if (!form.shiftDate) e.shiftDate = 'Date is required.';
     if (!form.startTime) e.startTime = 'Start time is required.';
-    else if (!TIME_RE.test(form.startTime)) e.startTime = 'Use HH:MM (24h).';
-
     if (!form.endTime) e.endTime = 'End time is required.';
-    else if (!TIME_RE.test(form.endTime)) e.endTime = 'Use HH:MM (24h).';
-
-    if (TIME_RE.test(form.startTime) && TIME_RE.test(form.endTime)) {
-      const s = toMinutes(form.startTime);
-      const eMin = toMinutes(form.endTime);
-      if (!Number.isNaN(s) && !Number.isNaN(eMin)) {
-        if (s >= eMin) e.endTime = 'End time must be after start time.';
-        if (form.step15 && ((s % 15 !== 0) || (eMin % 15 !== 0))) {
-          e.endTime = 'Times must be on 15-minute increments.';
-        }
-      }
+    if (form.startTime && form.endTime && form.startTime >= form.endTime) {
+      e.endTime = 'End time must be after start time.';
     }
-
-    // Role
     if (!form.role.trim()) e.role = 'Role/Position is required.';
 
-    // Assignee
     if (useUserList) {
       if (!assignee.userId) e.userId = 'Select an assignee.';
     } else {
-      const email = assignee.email.trim();
-      if (!email) e.email = 'Enter the assignee email.';
-      else if (!/^\S+@\S+\.\S+$/.test(email)) e.email = 'Invalid email format.';
+      if (!assignee.email.trim()) e.email = 'Enter the assignee email.';
+      else if (!/^\S+@\S+\.\S+$/.test(assignee.email.trim())) e.email = 'Invalid email format.';
     }
-
     return e;
   }, [form, assignee, useUserList]);
 
@@ -114,30 +78,28 @@ export default function ShiftForm({ onClose, onSaved, initial }) {
   const submit = async (e) => {
     e.preventDefault();
     setError(''); setOk('');
-    setTouched({
-      shiftDate: true, startTime: true, endTime: true, role: true, userId: true, email: true,
-    });
+    setTouched({ shiftDate: true, startTime: true, endTime: true, role: true, userId: true, email: true });
     if (hasErrors) return;
 
     try {
       setSaving(true);
       const payload = {
-        shiftDate: form.shiftDate,   // "YYYY-MM-DD"
-        startTime: form.startTime,   // "HH:MM"
-        endTime: form.endTime,       // "HH:MM"
-        role: form.role.trim(),
-        allowPast: !!form.allowPast,
-        step15: !!form.step15,
+        shiftDate: form.shiftDate, // "YYYY-MM-DD"
+        startTime: form.startTime, // "HH:MM"
+        endTime:   form.endTime,   // "HH:MM"
+        role:      form.role.trim(),
+        // allowPast: true, // <- add this if you need to permit past dates
       };
       if (useUserList) payload.userId = assignee.userId;
-      else payload.userEmail = assignee.email.trim();
+      else payload.userEmail = assignee.email.trim(); // backend will resolve email -> userId
 
-      // Helpful debug in case of 500s
-      // console.log('Shift payload:', payload);
-
-      const res = initial?._id
-        ? await axiosInstance.put(`/api/shifts/${initial._id}`, payload)
-        : await axiosInstance.post('/api/shifts', payload);
+      let res;
+      if (initial?._id) {
+        console.log('Shift payload:', payload);
+        res = await axiosInstance.put(`/api/shifts/${initial._id}`, payload);
+      } else {
+        res = await axiosInstance.post('/api/shifts', payload);
+      }
 
       setOk(`Shift ${initial?._id ? 'updated' : 'created'} successfully.`);
       onSaved?.(res.data);
@@ -145,6 +107,7 @@ export default function ShiftForm({ onClose, onSaved, initial }) {
     } catch (err) {
       const msg = err?.response?.data?.message || 'Failed to save shift.';
       setError(msg);
+      console.error('Shift save failed:', err?.response?.status, err?.response?.data || err?.message);
     } finally {
       setSaving(false);
     }
@@ -257,27 +220,6 @@ export default function ShiftForm({ onClose, onSaved, initial }) {
           <p className="text-xs text-gray-500 mt-1">Couldn’t load user list—enter the employee’s email instead.</p>
         </label>
       )}
-
-      {/* Options */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <label className="inline-flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={form.allowPast}
-            onChange={onChange('allowPast')}
-          />
-          <span className="text-sm text-[#4b5563]">Allow past date</span>
-        </label>
-
-        <label className="inline-flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={form.step15}
-            onChange={onChange('step15')}
-          />
-          <span className="text-sm text-[#4b5563]">Require 15-min increments</span>
-        </label>
-      </div>
 
       <div className="flex gap-2 pt-2">
         <button
