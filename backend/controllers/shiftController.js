@@ -31,7 +31,8 @@ function overlapsAny(existing, sMin, eMin) {
  * Admin: list all (paginated)
  * User: list their own (paginated)
  */
-async function getShifts(req, res) {
+// backend/controllers/shiftController.js
+const getShifts = async (req, res) => {
   try {
     const isAdmin = req.user?.role === 'admin';
 
@@ -39,7 +40,36 @@ async function getShifts(req, res) {
     const limit = Math.min(Math.max(parseInt(req.query.limit || '10', 10), 1), 100);
     const skip  = (page - 1) * limit;
 
+    // base scope
     const filter = isAdmin ? {} : { userId: req.user.id };
+
+    // ---- DATE FILTERS (inclusive) ----
+    // expect YYYY-MM-DD from the UI
+    const { start, end } = req.query;
+    if (start || end) {
+      filter.shiftDate = {};
+      if (start) {
+        const d = new Date(start);
+        d.setHours(0, 0, 0, 0);
+        filter.shiftDate.$gte = d;
+      }
+      if (end) {
+        const d = new Date(end);
+        // make end inclusive by pushing to end-of-day
+        d.setHours(23, 59, 59, 999);
+        filter.shiftDate.$lte = d;
+      }
+    }
+
+    // ---- ROLE FILTER (case-insensitive contains) ----
+    if (req.query.role && req.query.role.trim()) {
+      filter.role = { $regex: req.query.role.trim(), $options: 'i' };
+    }
+
+    // ---- STATUS FILTER (exact) ----
+    if (req.query.status && req.query.status !== 'All') {
+      filter.status = req.query.status;
+    }
 
     const q = Shift.find(filter)
       .populate('userId', 'name email')
@@ -60,10 +90,10 @@ async function getShifts(req, res) {
       limit,
     });
   } catch (err) {
-    console.error('getShifts error:', err);
-    res.status(500).json({ message: 'Failed to load shifts.', detail: err.message });
+    console.error('Error fetching shifts:', err);
+    res.status(500).json({ message: 'Failed to load shifts.' });
   }
-}
+};
 
 /**
  * POST /api/shifts  (admin only)
