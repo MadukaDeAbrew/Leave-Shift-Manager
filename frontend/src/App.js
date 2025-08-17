@@ -1,121 +1,60 @@
-/*
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+// src/App.js
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useAuth, AuthProvider } from './context/AuthContext';
+
 import Navbar from './components/Navbar';
+import ProtectedRoute from './components/ProtectedRoute';
+
+import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import Profile from './pages/Profile';
-import Tasks from './pages/Tasks';
-import LeavesPage from './pages/LeavesPage'; 
-import AdminLeaves from './pages/AdminLeaves';
 
-function App() {
+import LeavesPage from './pages/LeavesPage';
+import ShiftsPage from './pages/ShiftsPage';
+import MySwapRequests from './pages/MySwapRequests';
+import AdminLeaves from './pages/AdminLeaves';
+import AdminSwapRequests from './pages/AdminSwapRequests';
+
+function AppShell() {
+  const { user, restoreSession } = useAuth();
+
+  useEffect(() => { restoreSession?.(); }, [restoreSession]);
+
   return (
     <Router>
       <Navbar />
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/tasks" element={<Tasks />} />
-        <Route path="/leaves" element={ <LeavesPage />}  />
-        <Route path="/admin/leaves" element={<ProtectedRoute role="admin"><AdminLeaves /></ProtectedRoute>}/>
 
+      <Routes>
+        {/* Public */}
+        <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
+        <Route path="/register" element={user ? <Navigate to="/" replace /> : <Register />} />
+
+        {/* Protected (any logged-in user) */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/" element={<Home />} />
+          <Route path="/leaves" element={<LeavesPage />} />
+          <Route path="/shifts" element={<ShiftsPage />} />
+          <Route path="/my-swaps" element={<MySwapRequests />} />
+        </Route>
+
+        {/* Admin-only */}
+        <Route element={<ProtectedRoute requireAdmin />}>
+          <Route path="/admin/leaves" element={<AdminLeaves />} />
+          <Route path="/admin/swaps" element={<AdminSwapRequests />} />
+        </Route>
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to={user ? '/' : '/login'} replace />} />
       </Routes>
     </Router>
   );
 }
 
-export default App;
-*/
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import ProtectedRoute from './components/ProtectedRoute';
-import Navbar from './components/Navbar';
-
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Profile from './pages/Profile';
-import Tasks from './pages/Tasks';
-import LeavesPage from './pages/LeavesPage';
-import ShiftsPage from './pages/ShiftsPage';
-import MySwapRequests from './pages/MySwapRequests';
-import AdminSwapRequests from './pages/AdminSwapRequests';
-import AdminLeaves from './pages/AdminLeaves'; 
-
 export default function App() {
   return (
-    <Router>
-      <Navbar />
-      <Routes>
-        {/* Default redirect */}
-        <Route path="/" element={<Navigate to="/shifts" replace />} />
-
-        {/* Public routes */}
-        <Route path="/login" element={<Login />}/>
-        <Route path="/register" element={<Register />}/>
-
-        {/* Protected routes */}
-        <Route
-          path="/profile"
-          element={
-            <ProtectedRoute>
-              <Profile />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/tasks"
-          element={
-            <ProtectedRoute>
-              <Tasks />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/leaves"
-          element={
-            <ProtectedRoute>
-              <LeavesPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/shifts"
-          element={
-            <ProtectedRoute>
-              <ShiftsPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/my-swaps"
-          element={
-            <ProtectedRoute>
-              <MySwapRequests />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Admin-only routes */}
-        <Route
-          path="/admin/swaps"
-          element={
-            <ProtectedRoute role="admin">
-              <AdminSwapRequests />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/leaves"
-          element={
-            <ProtectedRoute role="admin">
-              <AdminLeaves />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/shifts" replace />} />
-      </Routes>
-    </Router>
+    <AuthProvider>
+      <AppShell />
+    </AuthProvider>
   );
 }

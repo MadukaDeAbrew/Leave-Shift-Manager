@@ -2,13 +2,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import axiosInstance from '../axiosConfig';
 
-/**
- * Shift Swap Request Form
- * Props:
- *  - sourceShift (required): shift user wants to swap FROM
- *  - onClose?: () => void
- *  - onSaved?: (swap) => void
- */
 export default function SwapRequestForm({ sourceShift, onClose, onSaved }) {
   const [options, setOptions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,11 +17,7 @@ export default function SwapRequestForm({ sourceShift, onClose, onSaved }) {
     try {
       setLoading(true);
       const res = await axiosInstance.get('/api/shifts/available-for-swap', {
-        params: {
-          excludeShiftId: sourceShift?._id,
-          sameDay: false,       // show broad list (you can add UI to toggle this)
-          status: 'Scheduled',  // only scheduled by default
-        },
+        params: { excludeShiftId: sourceShift?._id },
       });
       const list = Array.isArray(res.data) ? res.data : [];
       setOptions(list);
@@ -58,28 +47,18 @@ export default function SwapRequestForm({ sourceShift, onClose, onSaved }) {
   const submit = async (e) => {
     e.preventDefault();
     setError(''); setOk('');
-
-    if (!sourceShift?._id) {
-      setError('Source shift missing. Please reopen the swap form.');
-      return;
-    }
-    if (!targetId) {
-      setError('Please choose a shift to swap with.');
-      return;
-    }
-    if (sourceShift._id === targetId) {
-      setError('Cannot swap with the same shift.');
+    if (hasErrors) {
+      setError(Object.values(errors)[0]);
       return;
     }
 
     try {
       setSaving(true);
-      const payload = {
+      const res = await axiosInstance.post('/api/swaps', {
         fromShiftId: sourceShift._id,
         toShiftId: targetId,
         reason: reason.trim(),
-      };
-      const res = await axiosInstance.post('/api/swaps', payload);
+      });
       setOk('Swap request submitted.');
       onSaved?.(res.data);
       onClose?.();
@@ -110,7 +89,7 @@ export default function SwapRequestForm({ sourceShift, onClose, onSaved }) {
           <div className="p-2 border rounded border-[#cbd5e1]">Loading options…</div>
         ) : options.length === 0 ? (
           <div className="p-2 border rounded border-[#cbd5e1] text-[#6b7280]">
-            No compatible shifts found.
+            No compatible shifts found for this day.
           </div>
         ) : (
           <select
@@ -121,13 +100,7 @@ export default function SwapRequestForm({ sourceShift, onClose, onSaved }) {
             <option value="">Select a shift…</option>
             {options.map((s) => (
               <option key={s._id} value={s._id}>
-                {(s.userId?.name || 'Unassigned')}
-                {' • '}
-                {s.shiftDate ? new Date(s.shiftDate).toLocaleDateString() : '—'}
-                {' • '}
-                {s.startTime}-{s.endTime}
-                {' • '}
-                {s.role || '—'}
+                {s.userId?.name || 'Employee / Unassigned'} • {s.startTime}-{s.endTime} • {s.role || '—'}
               </option>
             ))}
           </select>

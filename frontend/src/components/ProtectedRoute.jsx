@@ -1,21 +1,15 @@
-import { Navigate } from 'react-router-dom';
+
+import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-export default function ProtectedRoute({ children, role }) {
-  const { token, user, loading } = useAuth();
+export default function ProtectedRoute({ requireAdmin = false }) {
+  const { user, loading } = useAuth();
 
-  // While restoring session from localStorage
-  if (loading) return null; // or a spinner
+  if (loading) return <div className="p-4">Loading…</div>;
+  if (!user) return <Navigate to="/login" replace />;
 
-  // Not logged in → send to login
-  if (!token) {
-    return <Navigate to="/login" replace />;
+  if (requireAdmin && user.role !== 'admin') {
+    return <Navigate to="/" replace />;
   }
-
-  // Role-gated route (e.g., admin-only)
-  if (role && user?.role !== role) {
-    return <Navigate to="/shifts" replace />;
-  }
-
-  return children;
+  return <Outlet />;
 }
