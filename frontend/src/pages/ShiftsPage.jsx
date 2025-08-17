@@ -3,12 +3,13 @@ import { useEffect, useRef, useState } from 'react';
 import axiosInstance from '../axiosConfig';
 import { useAuth } from '../context/AuthContext';
 import ShiftForm from '../components/ShiftForm';
-import ShiftDayView from '../components/ShiftDayView';
+import ShiftDayView from '../components/ShiftDayView'; // 9.3
+import SwapRequestForm from '../components/SwapRequestForm'; // 11.1
 
 const LIMIT = 10;
 const STATUS_OPTIONS = ['All', 'Scheduled', 'Completed', 'Cancelled'];
 
-// Lightweight modal so you don't need extra deps
+// Lightweight modal
 function Modal({ open, onClose, children, title = 'Dialog' }) {
   if (!open) return null;
   return (
@@ -17,7 +18,9 @@ function Modal({ open, onClose, children, title = 'Dialog' }) {
       <div className="relative z-50 w-[95%] max-w-2xl bg-white rounded-xl border border-[#cbd5e1] shadow p-4">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-lg font-semibold text-[#1e3a8a]">{title}</h3>
-          <button onClick={onClose} className="px-2 py-1 rounded border border-[#cbd5e1] hover:bg-[#f3f4f6]">Close</button>
+          <button onClick={onClose} className="px-2 py-1 rounded border border-[#cbd5e1] hover:bg-[#f3f4f6]">
+            Close
+          </button>
         </div>
         {children}
       </div>
@@ -42,9 +45,13 @@ export default function ShiftsPage() {
   // View toggle
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'day'
 
-  // Modal state for create/edit
+  // Create/Edit modals
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
+
+  // Swap modal
+  const [showSwap, setShowSwap] = useState(false);
+  const [swapSource, setSwapSource] = useState(null);
 
   // -------- Filters --------
   const [filters, setFilters] = useState({
@@ -55,8 +62,7 @@ export default function ShiftsPage() {
   });
   const [filtersVersion, setFiltersVersion] = useState(0); // bump to refetch
 
-  const updateFilter = (name) => (e) =>
-    setFilters((f) => ({ ...f, [name]: e.target.value }));
+  const updateFilter = (name) => (e) => setFilters((f) => ({ ...f, [name]: e.target.value }));
 
   const resetFilters = () => {
     setFilters({ start: '', end: '', role: '', status: 'All' });
@@ -71,8 +77,8 @@ export default function ShiftsPage() {
 
   const buildParams = () => {
     const params = { page, limit: LIMIT };
-    if (filters.start) params.start = filters.start;    // YYYY-MM-DD
-    if (filters.end)   params.end   = filters.end;      // YYYY-MM-DD
+    if (filters.start) params.start = filters.start; // YYYY-MM-DD
+    if (filters.end) params.end = filters.end; // YYYY-MM-DD
     if (filters.role?.trim()) params.role = filters.role.trim();
     if (filters.status && filters.status !== 'All') params.status = filters.status;
     return params;
@@ -133,6 +139,13 @@ export default function ShiftsPage() {
       const msg = e?.response?.data?.message || 'Failed to delete shift.';
       setErr(msg);
     }
+  };
+
+  // Determine if a shift belongs to current user (supports _id/id as string or object)
+  const isMine = (s) => {
+    const myId = user?._id || user?.id;
+    const uid = (typeof s.userId === 'string') ? s.userId : s.userId?._id || s.userId?.id;
+    return myId && uid && String(uid) === String(myId);
   };
 
   const canPrev = page > 1;
@@ -285,6 +298,8 @@ export default function ShiftsPage() {
               isAdmin={isAdmin}
               onEdit={(row) => openEdit(row)}
               onDelete={(id) => removeShift(id)}
+              // If your ShiftDayView supports it, you can also pass:
+              // onSwap={(row) => { setSwapSource(row); setShowSwap(true); }}
             />
           </div>
         ) : (
@@ -297,7 +312,7 @@ export default function ShiftsPage() {
                 <th className="text-left p-3 border-b">End</th>
                 <th className="text-left p-3 border-b">Role</th>
                 <th className="text-left p-3 border-b">Status</th>
-                {isAdmin && <th className="text-left p-3 border-b">Actions</th>}
+                <th className="text-left p-3 border-b">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -318,24 +333,36 @@ export default function ShiftsPage() {
                   <td className="p-3 border-b">{s.endTime || '—'}</td>
                   <td className="p-3 border-b">{s.role || '—'}</td>
                   <td className="p-3 border-b">{s.status || 'Scheduled'}</td>
-                  {isAdmin && (
-                    <td className="p-3 border-b">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => openEdit(s)}
-                          className="px-3 py-1 rounded bg-yellow-500 text-white hover:bg-yellow-600"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => removeShift(s._id)}
-                          className="px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  )}
+                  <td className="p-3 border-b">
+                    <div className="flex gap-2">
+                      {isAdmin ? (
+                        <>
+                          <button
+                            onClick={() => openEdit(s)}
+                            className="px-3 py-1 rounded bg-yellow-500 text-white hover:bg-yellow-600"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => removeShift(s._id)}
+                            className="px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700"
+                          >
+                            Delete
+                          </button>
+                        </>
+                      ) : (
+                        // Non-admin actions: allow swap on own Scheduled shift
+                        isMine(s) && (s.status || 'Scheduled') === 'Scheduled' && (
+                          <button
+                            onClick={() => { setSwapSource(s); setShowSwap(true); }}
+                            className="px-3 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-700"
+                          >
+                            Request Swap
+                          </button>
+                        )
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -383,7 +410,7 @@ export default function ShiftsPage() {
         </button>
       </div>
 
-      {/* Modal with ShiftForm (create/edit) */}
+      {/* Modal: Create/Edit Shift */}
       <Modal
         open={showForm}
         onClose={() => { setShowForm(false); setEditTarget(null); }}
@@ -393,6 +420,23 @@ export default function ShiftsPage() {
           initial={editTarget || undefined}
           onClose={() => { setShowForm(false); setEditTarget(null); }}
           onSaved={handleSaved}
+        />
+      </Modal>
+
+      {/* Modal: Request Swap */}
+      <Modal
+        open={showSwap}
+        onClose={() => { setShowSwap(false); setSwapSource(null); }}
+        title="Request Shift Swap"
+      >
+        <SwapRequestForm
+          sourceShift={swapSource}
+          onClose={() => { setShowSwap(false); setSwapSource(null); }}
+          onSaved={() => {
+            setOk('Swap request submitted.');
+            setShowSwap(false);
+            setSwapSource(null);
+          }}
         />
       </Modal>
     </div>
