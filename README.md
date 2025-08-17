@@ -1,17 +1,31 @@
-**Task Manager Application Overview:The task manager application is designed to help users efficiently manage their tasks and responsibilities by providing a user-friendly interface for creating, viewing, updating, and deleting tasks. It includes essential features such as secure user authentication, allowing individuals to sign up and log in to their accounts, as well as profile management to update personal information. With built-in validation such as input field validation and email validation, the application ensures a seamless user experience while enhancing productivity and organization in both personal and professional settings. **
+**Leave & Shift Management System**
+**Overview:** The specific application is designed to help organizations streamline employee scheduling and leave processes. It provides a user-friendly interface for employees to apply for leave, view assigned shifts, and request shift swaps,generate reports while enabling administrators to manage approvals, assign shifts, update lave and shift rules and oversee operations efficiently.The application ensures secure user authentication (signup, login, logout) and role-based access, with built-in validations to prevent scheduling conflicts and improve workflow. This system enhances transparency, reduces manual errors, and boosts productivity for both employees and administrators.
 
 **This apps **contain** the following features:**
 
-* Signup
-* Login
-* Logout
-* Update profile
-* Add tasks
-* View tasks
-* Update tasks
-* Delete tasks
+-Authentication & Profile
+Signup
+Login
+Logout
 
-**This **app**lication** is**almost **a** precompiled** app**. However, students will develop some features,**such as adding tasks, viewing tasks, updating tasks, and **deleting** tasks**. **Students** will interact with GitHub when they develop the features.**
+
+-Leave Management
+Apply for leave
+View leave history
+Approve/Reject leave (Admin)
+
+-Shift Management
+Create and assign shifts (Admin)
+View assigned shifts (Employee)
+Update or delete assigned shifts (Admin)
+Filter shifts by date range
+
+-Shift Swap
+Request shift swap
+View own swap requests
+Cancel swap request
+Admin approval for swap requests
+
 
 ---
 
