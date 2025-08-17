@@ -2,6 +2,9 @@
 const express = require('express');
 const router = express.Router();
 
+const { protect } = require('../middleware/authMiddleware');
+const { admin } = require('../middleware/roleMiddleware');
+
 const {
   getLeaves,
   createLeave,
@@ -11,8 +14,6 @@ const {
   rejectLeave,
 } = require('../controllers/leaveController');
 
-const { protect } = require('../middleware/authMiddleware');
-const { admin } = require('../middleware/roleMiddleware');
 
 // Protect everything in this router
 router.use(protect);
@@ -31,7 +32,7 @@ router.delete('/:id', deleteLeave);
 
 // Admin decisions
 // Admin-only decisions
-router.patch('/:id/approve', protect, admin, approveLeave);
-router.patch('/:id/reject',  protect, admin, rejectLeave);
+router.patch('/:id/approve', admin, approveLeave);
+router.patch('/:id/reject',  admin, rejectLeave);
 
 module.exports = router;
