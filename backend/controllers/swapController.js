@@ -1,17 +1,22 @@
 // backend/controllers/swapController.js
-const SwapRequest = require('../models/SwapRequest');
+const mongoose = require('mongoose');
+const Swap = require('../models/Swap');
 const Shift = require('../models/Shift');
 
-/** GET /api/swaps (admin: all, user: own) */
-async function listSwaps(req, res) {
+const isObjectId = (v) => mongoose.Types.ObjectId.isValid(v);
+
+/**
+ * GET /api/swaps
+ */
+const listSwaps = async (req, res) => {
   try {
     const isAdmin = req.user?.role === 'admin';
     const filter = isAdmin ? {} : { requester: req.user.id };
 
-    const swaps = await SwapRequest.find(filter)
+    const swaps = await Swap.find(filter)
+      .populate('requester', 'name email')
       .populate({ path: 'fromShiftId', populate: { path: 'userId', select: 'name email' } })
       .populate({ path: 'toShiftId',   populate: { path: 'userId', select: 'name email' } })
-      .populate('requester', 'name email')
       .sort({ createdAt: -1 });
 
     res.json(swaps);
@@ -19,103 +24,171 @@ async function listSwaps(req, res) {
     console.error('listSwaps error:', err);
     res.status(500).json({ message: 'Failed to load swap requests.' });
   }
-}
+};
 
-/** POST /api/swaps  Body: { fromShiftId, toShiftId, reason? } */
-async function createSwap(req, res) {
+/**
+ * POST /api/swaps
+ * Body: { fromShiftId, toShiftId, reason }
+ */
+const createSwap = async (req, res) => {
   try {
     const { fromShiftId, toShiftId, reason } = req.body || {};
+
     if (!fromShiftId || !toShiftId) {
       return res.status(400).json({ message: 'fromShiftId and toShiftId are required' });
     }
-    if (fromShiftId === toShiftId) {
-      return res.status(400).json({ message: 'Cannot swap a shift with itself' });
+    if (!isObjectId(fromShiftId) || !isObjectId(toShiftId)) {
+      return res.status(400).json({ message: 'Invalid shift id(s)' });
     }
 
     const [fromShift, toShift] = await Promise.all([
       Shift.findById(fromShiftId),
       Shift.findById(toShiftId),
     ]);
+
     if (!fromShift || !toShift) {
-      return res.status(404).json({ message: 'One or both shifts not found' });
+      return res.status(404).json({ message: 'Shift(s) not found' });
     }
 
-    // Optional guard: requester must own the fromShift if it’s assigned to a user
-    if (fromShift.userId && String(fromShift.userId) !== String(req.user.id)) {
-      return res.status(403).json({ message: 'You can only request swaps for your own shift' });
+    // requester must own the FROM shift (unless admin)
+    const isAdmin = req.user?.role === 'admin';
+    if (!isAdmin) {
+      if (!fromShift.userId || String(fromShift.userId) !== String(req.user.id)) {
+        return res.status(403).json({ message: 'You can only request a swap for your own shift' });
+      }
     }
 
-    const swap = await SwapRequest.create({
+    const swap = await Swap.create({
+      requester: req.user.id,
       fromShiftId,
       toShiftId,
-      requester: req.user.id,
-      reason: reason || '',
+      reason: (reason || '').slice(0, 300),
       status: 'Pending',
     });
 
-    const populated = await SwapRequest.findById(swap._id)
+    const populated = await Swap.findById(swap._id)
+      .populate('requester', 'name email')
       .populate({ path: 'fromShiftId', populate: { path: 'userId', select: 'name email' } })
-      .populate({ path: 'toShiftId',   populate: { path: 'userId', select: 'name email' } })
-      .populate('requester', 'name email');
+      .populate({ path: 'toShiftId',   populate: { path: 'userId', select: 'name email' } });
 
-    res.status(201).json(populated);
+    return res.status(201).json(populated);
   } catch (err) {
     console.error('createSwap error:', err);
-    res.status(500).json({ message: 'Failed to create swap request.' });
+    // Surface validation details to help you debug in dev
+    const detail = err?.message || String(err);
+    return res.status(500).json({ message: 'Failed to create swap request.', detail });
   }
-}
+};
 
-/** PATCH /api/swaps/:id/approve  (admin) */
-async function approveSwap(req, res) {
+/**
+ * PATCH /api/swaps/:id/approve  (admin)
+ * If the target shift is unassigned, move requester there and unassign the source.
+ * Else, swap assignees.
+ */
+const approveSwap = async (req, res) => {
   try {
+    if (req.user?.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
+
     const { id } = req.params;
-    const swap = await SwapRequest.findById(id);
-    if (!swap) return res.status(404).json({ message: 'Swap request not found' });
+    const swap = await Swap.findById(id);
+    if (!swap) return res.status(404).json({ message: 'Swap not found' });
+    if (swap.status !== 'Pending') {
+      return res.status(400).json({ message: 'Only Pending swaps can be approved' });
+    }
 
     const [fromShift, toShift] = await Promise.all([
       Shift.findById(swap.fromShiftId),
       Shift.findById(swap.toShiftId),
     ]);
-    if (!fromShift || !toShift) {
-      return res.status(404).json({ message: 'Associated shift not found' });
+    if (!fromShift || !toShift) return res.status(404).json({ message: 'Shift(s) not found' });
+
+    if (!toShift.userId) {
+      // target is unassigned: move requester there, unassign from source
+      toShift.userId = fromShift.userId || null;
+      fromShift.userId = null;
+    } else {
+      // both assigned: swap assignees
+      const tmp = fromShift.userId;
+      fromShift.userId = toShift.userId;
+      toShift.userId   = tmp;
     }
 
-    // Swap their assignees (null allowed = unassigned)
-    const tempUser = fromShift.userId || null;
-    fromShift.userId = toShift.userId || null;
-    toShift.userId   = tempUser;
-
     await Promise.all([fromShift.save(), toShift.save()]);
-
     swap.status = 'Approved';
     await swap.save();
 
-    const populated = await SwapRequest.findById(id)
+    const populated = await Swap.findById(swap._id)
+      .populate('requester', 'name email')
       .populate({ path: 'fromShiftId', populate: { path: 'userId', select: 'name email' } })
-      .populate({ path: 'toShiftId',   populate: { path: 'userId', select: 'name email' } })
-      .populate('requester', 'name email');
+      .populate({ path: 'toShiftId',   populate: { path: 'userId', select: 'name email' } });
 
     res.json(populated);
   } catch (err) {
     console.error('approveSwap error:', err);
-    res.status(500).json({ message: 'Failed to approve swap.' });
+    res.status(500).json({ message: 'Failed to approve swap.', detail: err?.message || String(err) });
   }
-}
+};
 
-/** PATCH /api/swaps/:id/reject  (admin) */
-async function rejectSwap(req, res) {
+/**
+ * PATCH /api/swaps/:id/reject  (admin)
+ */
+const rejectSwap = async (req, res) => {
   try {
+    if (req.user?.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
+
     const { id } = req.params;
-    const swap = await SwapRequest.findById(id);
-    if (!swap) return res.status(404).json({ message: 'Swap request not found' });
+    const swap = await Swap.findById(id);
+    if (!swap) return res.status(404).json({ message: 'Swap not found' });
+    if (swap.status !== 'Pending') {
+      return res.status(400).json({ message: 'Only Pending swaps can be rejected' });
+    }
 
     swap.status = 'Rejected';
     await swap.save();
-    res.json(swap);
+
+    const populated = await Swap.findById(swap._id)
+      .populate('requester', 'name email')
+      .populate({ path: 'fromShiftId', populate: { path: 'userId', select: 'name email' } })
+      .populate({ path: 'toShiftId',   populate: { path: 'userId', select: 'name email' } });
+
+    res.json(populated);
   } catch (err) {
     console.error('rejectSwap error:', err);
-    res.status(500).json({ message: 'Failed to reject swap.' });
+    res.status(500).json({ message: 'Failed to reject swap.', detail: err?.message || String(err) });
   }
-}
+};
 
-module.exports = { listSwaps, createSwap, approveSwap, rejectSwap };
+/**
+ * DELETE /api/swaps/:id  (requester or admin)
+ */
+const cancelSwap = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const swap = await Swap.findById(id);
+    if (!swap) return res.status(404).json({ message: 'Swap not found' });
+
+    const isAdmin = req.user?.role === 'admin';
+    const isOwner = String(swap.requester) === String(req.user.id);
+
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({ message: 'Not authorized to cancel this swap' });
+    }
+    if (swap.status !== 'Pending') {
+      return res.status(400).json({ message: 'Only Pending swaps can be cancelled' });
+    }
+
+    await swap.deleteOne();
+    res.json({ message: 'Swap request cancelled' });
+  } catch (err) {
+    console.error('cancelSwap error:', err);
+    res.status(500).json({ message: 'Failed to cancel swap request.', detail: err?.message || String(err) });
+  }
+};
+
+module.exports = {
+  listSwaps,
+  createSwap,
+  approveSwap,
+  rejectSwap,
+  cancelSwap,
+};
