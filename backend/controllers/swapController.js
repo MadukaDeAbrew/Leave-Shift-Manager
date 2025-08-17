@@ -1,161 +1,170 @@
 // backend/controllers/swapController.js
-const Swap = require('../models/Swap');
+const SwapRequest = require('../models/SwapRequest');
 const Shift = require('../models/Shift');
 
-/**
- * GET /api/swaps
- * - Admin: all swaps
- * - User: swaps they requested OR where their shift is the target (optional)
- * Query: role=allMine -> include both requested-by-me + requests-targeting-my-shifts
- */
-const listSwaps = async (req, res) => {
-  try {
-    const isAdmin = req.user?.role === 'admin';
-    const role = req.query.role || 'requested'; // requested | allMine
-
-    let filter = {};
-    if (!isAdmin) {
-      if (role === 'allMine') {
-        // swaps I requested OR where a shift of mine is target
-        const myId = req.user.id;
-        filter = { $or: [{ requesterId: myId }] };
-        // Expand to include targetShift owned by me
-        // We'll filter after populate for safety if needed.
-      } else {
-        filter = { requesterId: req.user.id };
-      }
-    }
-
-    const swaps = await Swap.find(filter)
-      .populate({ path: 'requesterId', select: 'name email' })
-      .populate({ path: 'sourceShift', populate: { path: 'userId', select: 'name email' } })
-      .populate({ path: 'targetShift', populate: { path: 'userId', select: 'name email' } })
-      .sort({ createdAt: -1 });
-
-    // If role=allMine for non-admin: include where targetShift.userId == me
-    let result = swaps;
-    if (!isAdmin && role === 'allMine') {
-      const me = String(req.user.id);
-      result = swaps.filter(s =>
-        String(s.requesterId?._id || s.requesterId) === me ||
-        String(s.targetShift?.userId?._id || s.targetShift?.userId) === me
-      );
-    }
-
-    res.json(result);
-  } catch (err) {
-    console.error('listSwaps error:', err);
-    res.status(500).json({ message: 'Failed to load swaps.' });
-  }
+const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/; // HH:MM
+const toMin = (t) => {
+  if (!TIME_RE.test(t)) return NaN;
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
 };
+const overlapsAny = (existing, sMin, eMin) =>
+  existing.some(({ startTime, endTime }) => {
+    const s2 = toMin(startTime);
+    const e2 = toMin(endTime);
+    if (Number.isNaN(s2) || Number.isNaN(e2)) return false;
+    return Math.max(sMin, s2) < Math.min(eMin, e2);
+  });
 
 /**
  * POST /api/swaps
- * Body: { sourceShiftId, targetShiftId, message? }
- * - Only owner of sourceShift can request.
- * - Cannot request swap with own target shift.
- * - (Example rule) Must be same date to keep it simple.
- * - Creates Swap in Pending.
+ * body: { fromShiftId, toShiftId, reason? }
+ * - Must be the owner of fromShift
+ * - Shifts must be on the same date (simple policy)
  */
 const createSwap = async (req, res) => {
   try {
-    const { sourceShiftId, targetShiftId, message } = req.body;
-    if (!sourceShiftId || !targetShiftId) {
-      return res.status(400).json({ message: 'sourceShiftId and targetShiftId are required' });
+    const { fromShiftId, toShiftId, reason } = req.body;
+    if (!fromShiftId || !toShiftId) {
+      return res.status(400).json({ message: 'fromShiftId and toShiftId are required' });
     }
-    if (sourceShiftId === targetShiftId) {
+    if (fromShiftId === toShiftId) {
       return res.status(400).json({ message: 'Cannot swap a shift with itself' });
     }
 
-    const [source, target] = await Promise.all([
-      Shift.findById(sourceShiftId),
-      Shift.findById(targetShiftId),
+    const [fromShift, toShift] = await Promise.all([
+      Shift.findById(fromShiftId),
+      Shift.findById(toShiftId),
     ]);
+    if (!fromShift || !toShift) return res.status(404).json({ message: 'Shift not found' });
 
-    if (!source || !target) return res.status(404).json({ message: 'Shift not found' });
-
-    // Ownership: source must belong to requester
-    if (String(source.userId) !== String(req.user.id)) {
+    if (String(fromShift.userId) !== req.user.id) {
       return res.status(403).json({ message: 'You can only request swaps for your own shift' });
     }
-
-    // Disallow same owner
-    if (String(target.userId) === String(req.user.id)) {
-      return res.status(400).json({ message: 'Target shift cannot belong to you' });
+    if (String(toShift.userId) === req.user.id) {
+      return res.status(400).json({ message: 'Cannot swap with your own shift' });
     }
 
-    // Simple rule: require same date (you can relax this)
-    const srcDate = new Date(source.shiftDate); srcDate.setHours(0,0,0,0);
-    const tgtDate = new Date(target.shiftDate); tgtDate.setHours(0,0,0,0);
-    if (srcDate.getTime() !== tgtDate.getTime()) {
-      return res.status(400).json({ message: 'Shifts must be on the same date for swap' });
+    const d1 = new Date(fromShift.shiftDate); d1.setHours(0,0,0,0);
+    const d2 = new Date(toShift.shiftDate);   d2.setHours(0,0,0,0);
+    if (d1.getTime() !== d2.getTime()) {
+      return res.status(400).json({ message: 'Shifts must be on the same date to swap' });
     }
 
-    // Optional: Avoid duplicate pending swap between the same pair
-    const existing = await Swap.findOne({
-      sourceShift: sourceShiftId,
-      targetShift: targetShiftId,
-      status: 'Pending',
-    });
-    if (existing) {
-      return res.status(409).json({ message: 'A pending swap request already exists for these shifts' });
-    }
-
-    const swap = await Swap.create({
-      requesterId: req.user.id,
-      sourceShift: sourceShiftId,
-      targetShift: targetShiftId,
-      message: message || '',
+    const swap = await SwapRequest.create({
+      requester: req.user.id,
+      fromShift: fromShift._id,
+      toShift: toShift._id,
+      reason: reason || '',
       status: 'Pending',
     });
 
-    const populated = await Swap.findById(swap._id)
-      .populate({ path: 'requesterId', select: 'name email' })
-      .populate({ path: 'sourceShift', populate: { path: 'userId', select: 'name email' } })
-      .populate({ path: 'targetShift', populate: { path: 'userId', select: 'name email' } });
+    const populated = await SwapRequest.findById(swap._id)
+      .populate('requester', 'name email')
+      .populate({ path: 'fromShift', populate: { path: 'userId', select: 'name email' } })
+      .populate({ path: 'toShift',   populate: { path: 'userId', select: 'name email' } });
 
     res.status(201).json(populated);
   } catch (err) {
     console.error('createSwap error:', err);
-    res.status(500).json({ message: 'Failed to create swap.' });
+    res.status(500).json({ message: 'Failed to create swap request.' });
+  }
+};
+
+/**
+ * GET /api/swaps
+ * - Admin: all
+ * - User: only swaps they created (requester)
+ * Query: page, limit, status?
+ */
+const listSwaps = async (req, res) => {
+  try {
+    const isAdmin = req.user?.role === 'admin';
+    const page  = Math.max(parseInt(req.query.page || '1', 10), 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit || '10', 10), 1), 100);
+    const skip  = (page - 1) * limit;
+
+    const filter = isAdmin ? {} : { requester: req.user.id };
+    if (req.query.status && req.query.status !== 'All') {
+      filter.status = req.query.status;
+    }
+
+    const q = SwapRequest.find(filter)
+      .populate('requester', 'name email')
+      .populate({ path: 'fromShift', populate: { path: 'userId', select: 'name email' } })
+      .populate({ path: 'toShift',   populate: { path: 'userId', select: 'name email' } })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const [rows, total] = await Promise.all([q.exec(), SwapRequest.countDocuments(filter)]);
+    res.json({ swaps: rows, page, pages: Math.ceil(total / limit) || 1, total, limit });
+  } catch (err) {
+    console.error('listSwaps error:', err);
+    res.status(500).json({ message: 'Failed to load swap requests.' });
   }
 };
 
 /**
  * PATCH /api/swaps/:id/approve  (admin)
- * - Swaps userId on both shifts, marks swap Approved.
+ * - swap user assignments between the two shifts
+ * - basic overlap safety checks
  */
 const approveSwap = async (req, res) => {
   try {
-    if (req.user?.role !== 'admin') {
-      return res.status(403).json({ message: 'Admin only' });
-    }
+    if (req.user.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
 
     const { id } = req.params;
-    const swap = await Swap.findById(id).populate('sourceShift').populate('targetShift');
-    if (!swap) return res.status(404).json({ message: 'Swap not found' });
+    const swap = await SwapRequest.findById(id);
+    if (!swap) return res.status(404).json({ message: 'Swap request not found' });
     if (swap.status !== 'Pending') {
-      return res.status(400).json({ message: 'Only pending swaps can be approved' });
+      return res.status(400).json({ message: `Cannot approve a ${swap.status} request` });
     }
 
-    const source = await Shift.findById(swap.sourceShift);
-    const target = await Shift.findById(swap.targetShift);
-    if (!source || !target) return res.status(404).json({ message: 'One or both shifts not found' });
+    const [a, b] = await Promise.all([
+      Shift.findById(swap.fromShift),
+      Shift.findById(swap.toShift),
+    ]);
+    if (!a || !b) return res.status(404).json({ message: 'Shift not found' });
 
-    // Swap the assignees
-    const tmp = source.userId;
-    source.userId = target.userId;
-    target.userId = tmp;
+    // Same-day policy already enforced at creation, but keep safe:
+    const d1 = new Date(a.shiftDate); d1.setHours(0,0,0,0);
+    const d2 = new Date(b.shiftDate); d2.setHours(0,0,0,0);
+    if (d1.getTime() !== d2.getTime()) {
+      return res.status(400).json({ message: 'Shifts must be on the same date to swap' });
+    }
 
-    await Promise.all([source.save(), target.save()]);
+    const aUser = a.userId;
+    const bUser = b.userId;
+
+    // Overlap checks: A takes B; B takes A
+    const sB = toMin(b.startTime), eB = toMin(b.endTime);
+    const sA = toMin(a.startTime), eA = toMin(a.endTime);
+
+    const [aDayOthers, bDayOthers] = await Promise.all([
+      Shift.find({ userId: aUser, shiftDate: d2, _id: { $ne: a._id } }),
+      Shift.find({ userId: bUser, shiftDate: d1, _id: { $ne: b._id } }),
+    ]);
+
+    if (overlapsAny(aDayOthers, sB, eB)) {
+      return res.status(409).json({ message: 'Approval would cause overlap for user A on that day' });
+    }
+    if (overlapsAny(bDayOthers, sA, eA)) {
+      return res.status(409).json({ message: 'Approval would cause overlap for user B on that day' });
+    }
+
+    // Perform the swap
+    a.userId = bUser;
+    b.userId = aUser;
+    await Promise.all([a.save(), b.save()]);
 
     swap.status = 'Approved';
     await swap.save();
 
-    const populated = await Swap.findById(id)
-      .populate({ path: 'requesterId', select: 'name email' })
-      .populate({ path: 'sourceShift', populate: { path: 'userId', select: 'name email' } })
-      .populate({ path: 'targetShift', populate: { path: 'userId', select: 'name email' } });
+    const populated = await SwapRequest.findById(swap._id)
+      .populate('requester', 'name email')
+      .populate({ path: 'fromShift', populate: { path: 'userId', select: 'name email' } })
+      .populate({ path: 'toShift',   populate: { path: 'userId', select: 'name email' } });
 
     res.json(populated);
   } catch (err) {
@@ -169,18 +178,24 @@ const approveSwap = async (req, res) => {
  */
 const rejectSwap = async (req, res) => {
   try {
-    if (req.user?.role !== 'admin') {
-      return res.status(403).json({ message: 'Admin only' });
-    }
+    if (req.user.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
+
     const { id } = req.params;
-    const swap = await Swap.findById(id);
-    if (!swap) return res.status(404).json({ message: 'Swap not found' });
+    const swap = await SwapRequest.findById(id);
+    if (!swap) return res.status(404).json({ message: 'Swap request not found' });
     if (swap.status !== 'Pending') {
-      return res.status(400).json({ message: 'Only pending swaps can be rejected' });
+      return res.status(400).json({ message: `Cannot reject a ${swap.status} request` });
     }
+
     swap.status = 'Rejected';
-    const saved = await swap.save();
-    res.json(saved);
+    await swap.save();
+
+    const populated = await SwapRequest.findById(swap._id)
+      .populate('requester', 'name email')
+      .populate({ path: 'fromShift', populate: { path: 'userId', select: 'name email' } })
+      .populate({ path: 'toShift',   populate: { path: 'userId', select: 'name email' } });
+
+    res.json(populated);
   } catch (err) {
     console.error('rejectSwap error:', err);
     res.status(500).json({ message: 'Failed to reject swap.' });
@@ -188,22 +203,29 @@ const rejectSwap = async (req, res) => {
 };
 
 /**
- * DELETE /api/swaps/:id (requester cancels while Pending)
+ * PATCH /api/swaps/:id/cancel  (requester only, while Pending)
  */
 const cancelSwap = async (req, res) => {
   try {
     const { id } = req.params;
-    const swap = await Swap.findById(id);
-    if (!swap) return res.status(404).json({ message: 'Swap not found' });
-    if (String(swap.requesterId) !== String(req.user.id) && req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Not authorized to cancel this swap' });
-    }
+    const swap = await SwapRequest.findById(id);
+    if (!swap) return res.status(404).json({ message: 'Swap request not found' });
     if (swap.status !== 'Pending') {
-      return res.status(400).json({ message: 'Only pending swaps can be cancelled' });
+      return res.status(400).json({ message: `Cannot cancel a ${swap.status} request` });
     }
+    if (String(swap.requester) !== req.user.id) {
+      return res.status(403).json({ message: 'Only the requester can cancel this swap' });
+    }
+
     swap.status = 'Cancelled';
     await swap.save();
-    res.json({ message: 'Swap cancelled' });
+
+    const populated = await SwapRequest.findById(swap._id)
+      .populate('requester', 'name email')
+      .populate({ path: 'fromShift', populate: { path: 'userId', select: 'name email' } })
+      .populate({ path: 'toShift',   populate: { path: 'userId', select: 'name email' } });
+
+    res.json(populated);
   } catch (err) {
     console.error('cancelSwap error:', err);
     res.status(500).json({ message: 'Failed to cancel swap.' });
@@ -211,8 +233,8 @@ const cancelSwap = async (req, res) => {
 };
 
 module.exports = {
-  listSwaps,
   createSwap,
+  listSwaps,
   approveSwap,
   rejectSwap,
   cancelSwap,
