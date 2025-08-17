@@ -1,147 +1,126 @@
 // backend/controllers/shiftController.js
 const Shift = require('../models/Shift');
+const User = require('../models/User');
 
-// ---------------- Helpers ----------------
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/; // HH:MM
-
-function toMinutes(hhmm) {
-  if (!TIME_RE.test(hhmm)) return NaN;
-  const [h, m] = hhmm.split(':').map(Number);
+const toMinutes = (t) => {
+  if (!TIME_RE.test(t)) return NaN;
+  const [h, m] = t.split(':').map(Number);
   return h * 60 + m;
-}
-
-/** Check any overlap between [s1,e1) and existing [s2,e2) */
-function overlapsAny(existing, sMin, eMin) {
-  return existing.some(({ startTime, endTime }) => {
+};
+const overlapsAny = (existing, sMin, eMin) =>
+  existing.some(({ startTime, endTime }) => {
     const s2 = toMinutes(startTime);
     const e2 = toMinutes(endTime);
     if (Number.isNaN(s2) || Number.isNaN(e2)) return false;
-    // Overlap if max(start) < min(end); touching edges is OK
-    return Math.max(sMin, s2) < Math.min(eMin, e2);
+    return Math.max(sMin, s2) < Math.min(eMin, e2); // true overlap, edges ok
   });
-}
 
-// ---------------- Controllers ----------------
-
-/**
- * GET /api/shifts
- * Admin: list all (paginated)
- * User: list their own
- */
+/** GET /api/shifts (admin: all, user: own, paginated) */
 const getShifts = async (req, res) => {
   try {
     const isAdmin = req.user?.role === 'admin';
-
     const page  = Math.max(parseInt(req.query.page || '1', 10), 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit || '10', 10), 1), 100);
     const skip  = (page - 1) * limit;
 
     const filter = isAdmin ? {} : { userId: req.user.id };
-
     const q = Shift.find(filter)
       .populate('userId', 'name email')
       .sort({ shiftDate: -1, startTime: 1 })
       .skip(skip)
       .limit(limit);
 
-    const [shifts, total] = await Promise.all([
-      q.exec(),
-      Shift.countDocuments(filter),
-    ]);
-
-    res.json({
-      shifts,
-      page,
-      pages: Math.ceil(total / limit) || 1,
-      total,
-      limit,
-    });
+    const [shifts, total] = await Promise.all([q.exec(), Shift.countDocuments(filter)]);
+    res.json({ shifts, page, pages: Math.ceil(total / limit) || 1, total, limit });
   } catch (err) {
     console.error('Error fetching shifts:', err);
     res.status(500).json({ message: 'Failed to load shifts.' });
   }
 };
 
-/**
- * POST /api/shifts  (admin only)
- * Body: { userId, shiftDate, startTime, endTime, role?, allowPast?, step15? }
- */
+/** POST /api/shifts (admin) */
+/** POST /api/shifts (admin) */
+// POST /api/shifts (admin only)
 const addShift = async (req, res) => {
   try {
+    // Guard: make sure req.user exists
+    if (!req.user) {
+      return res.status(401).json({ message: 'Unauthorized: missing user context' });
+    }
     if (req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Only admins can add shifts' });
     }
 
-    const {
-      userId,
-      shiftDate,
-      startTime,
-      endTime,
-      role,
-      allowPast, // optional boolean
-      step15,    // optional boolean
-    } = req.body;
+    let { userId, userEmail, shiftDate, startTime, endTime, role, allowPast, step15 } = req.body;
+
+    // If userId isn’t provided but userEmail is, resolve it
+    if (!userId && userEmail) {
+      const assignee = await User.findOne({ email: (userEmail || '').trim().toLowerCase() }).select('_id');
+      if (!assignee) {
+        return res.status(400).json({ message: 'Assignee email not found' });
+      }
+      userId = assignee._id;
+    }
 
     if (!userId || !shiftDate || !startTime || !endTime) {
       return res.status(400).json({ message: 'userId, shiftDate, startTime, endTime are required' });
     }
 
+    // Validate times
     if (!TIME_RE.test(startTime) || !TIME_RE.test(endTime)) {
       return res.status(400).json({ message: 'Time must be in HH:MM format' });
     }
-
     const sMin = toMinutes(startTime);
     const eMin = toMinutes(endTime);
     if (sMin >= eMin) {
       return res.status(400).json({ message: 'startTime must be before endTime' });
     }
-
     if (step15 && ((sMin % 15 !== 0) || (eMin % 15 !== 0))) {
       return res.status(400).json({ message: 'Times must be on 15-minute increments' });
     }
 
+    // Validate date (YYYY-MM-DD)
     const date = new Date(shiftDate);
     if (Number.isNaN(date.getTime())) {
       return res.status(400).json({ message: 'Invalid shiftDate' });
     }
-    date.setHours(0, 0, 0, 0);
+    date.setHours(0,0,0,0);
 
-    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const today = new Date(); today.setHours(0,0,0,0);
     if (!allowPast && date < today) {
       return res.status(400).json({ message: 'Shift date cannot be in the past' });
     }
 
-    // Overlap check for this user on this date
-    const sameDayShifts = await Shift.find({ userId, shiftDate: date });
-    if (overlapsAny(sameDayShifts, sMin, eMin)) {
+    // Overlap check
+    const sameDay = await Shift.find({ userId, shiftDate: date });
+    if (overlapsAny(sameDay, sMin, eMin)) {
       return res.status(409).json({ message: 'Shift overlaps an existing assignment for this user on this date' });
     }
 
+    // Create
     const shift = await Shift.create({
       userId,
       shiftDate: date,
       startTime,
       endTime,
-      role: role || '',
+      role: (role || '').trim(),
       status: 'Scheduled',
     });
 
     return res.status(201).json(shift);
   } catch (err) {
-    console.error('addShift error:', err);
-    return res.status(500).json({ message: 'Server error' });
+    console.error('addShift error:', err?.stack || err);
+    // Surface a clearer error to the client
+    return res.status(500).json({ message: 'Server error while creating shift.' });
   }
 };
 
-/**
- * PUT /api/shifts/:id  (admin only)
- * Body: may include userId, shiftDate, startTime, endTime, role, status, allowPast?, step15?
- */
+
+/** PUT /api/shifts/:id (admin) */
 const updateShift = async (req, res) => {
   try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Only admins can update shifts' });
-    }
+    if (req.user.role !== 'admin') return res.status(403).json({ message: 'Only admins can update shifts' });
 
     const { id } = req.params;
     const { userId, shiftDate, startTime, endTime, role, status, allowPast, step15 } = req.body;
@@ -154,41 +133,25 @@ const updateShift = async (req, res) => {
     const newStart  = startTime ?? shift.startTime;
     const newEnd    = endTime ?? shift.endTime;
 
-    if (!TIME_RE.test(newStart) || !TIME_RE.test(newEnd)) {
-      return res.status(400).json({ message: 'Time must be in HH:MM format' });
-    }
+    if (!TIME_RE.test(newStart) || !TIME_RE.test(newEnd))
+      return res.status(400).json({ message: 'Time must be HH:MM' });
 
     const sMin = toMinutes(newStart);
     const eMin = toMinutes(newEnd);
-    if (sMin >= eMin) {
-      return res.status(400).json({ message: 'startTime must be before endTime' });
-    }
-
-    if (step15 && ((sMin % 15 !== 0) || (eMin % 15 !== 0))) {
+    if (sMin >= eMin) return res.status(400).json({ message: 'startTime must be before endTime' });
+    if (step15 && ((sMin % 15 !== 0) || (eMin % 15 !== 0)))
       return res.status(400).json({ message: 'Times must be on 15-minute increments' });
-    }
 
-    if (Number.isNaN(newDate.getTime())) {
-      return res.status(400).json({ message: 'Invalid shiftDate' });
-    }
-    newDate.setHours(0, 0, 0, 0);
+    if (Number.isNaN(newDate.getTime())) return res.status(400).json({ message: 'Invalid shiftDate' });
+    newDate.setHours(0,0,0,0);
 
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    if (!allowPast && newDate < today) {
-      return res.status(400).json({ message: 'Shift date cannot be in the past' });
-    }
+    const today = new Date(); today.setHours(0,0,0,0);
+    if (!allowPast && newDate < today) return res.status(400).json({ message: 'Shift date cannot be in the past' });
 
-    // Overlap check (exclude the current shift id)
-    const sameDayShifts = await Shift.find({
-      userId: newUserId,
-      shiftDate: newDate,
-      _id: { $ne: id },
-    });
-    if (overlapsAny(sameDayShifts, sMin, eMin)) {
+    const sameDay = await Shift.find({ userId: newUserId, shiftDate: newDate, _id: { $ne: id } });
+    if (overlapsAny(sameDay, sMin, eMin))
       return res.status(409).json({ message: 'Shift overlaps an existing assignment for this user on this date' });
-    }
 
-    // Apply updates
     shift.userId    = newUserId;
     shift.shiftDate = newDate;
     shift.startTime = newStart;
@@ -197,42 +160,32 @@ const updateShift = async (req, res) => {
     if (status !== undefined) shift.status = status;
 
     const saved = await shift.save();
-    return res.json(saved);
+    res.json(saved);
   } catch (err) {
     console.error('updateShift error:', err);
-    return res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
-/**
- * DELETE /api/shifts/:id  (admin only)
- */
+/** DELETE /api/shifts/:id (admin) */
 const deleteShift = async (req, res) => {
   try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Only admins can delete shifts' });
-    }
+    if (req.user.role !== 'admin') return res.status(403).json({ message: 'Only admins can delete shifts' });
     const { id } = req.params;
     const shift = await Shift.findById(id);
     if (!shift) return res.status(404).json({ message: 'Shift not found' });
-
     await shift.deleteOne();
-    return res.json({ message: 'Shift deleted' });
+    res.json({ message: 'Shift deleted' });
   } catch (err) {
     console.error('deleteShift error:', err);
-    return res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
-/**
- * PATCH /api/shifts/:id/status  (admin only)
- * Body: { status }
- */
+/** PATCH /api/shifts/:id/status (admin) */
 const updateShiftStatus = async (req, res) => {
   try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Only admins can update shift status' });
-    }
+    if (req.user.role !== 'admin') return res.status(403).json({ message: 'Only admins can update shift status' });
     const { id } = req.params;
     const { status } = req.body;
 
@@ -241,36 +194,24 @@ const updateShiftStatus = async (req, res) => {
 
     if (status) shift.status = status;
     const saved = await shift.save();
-    return res.json(saved);
+    res.json(saved);
   } catch (err) {
     console.error('updateShiftStatus error:', err);
-    return res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
-/**
- * GET /api/shifts/available-for-swap
- * Query: ?excludeShiftId=<id>
- * Returns other users' shifts you could swap with (simple example: same day; no ownership).
- * Adjust logic as needed.
- */
+/** GET /api/shifts/available-for-swap */
 const getAvailableForSwap = async (req, res) => {
   try {
     const { excludeShiftId } = req.query;
-
-    // Load the source shift (to exclude & to match date)
     const source = excludeShiftId ? await Shift.findById(excludeShiftId) : null;
 
     const filter = {
-      ...(source
-        ? { shiftDate: source.shiftDate }
-        : {}),
-      userId: { $ne: req.user.id }, // only show other users' shifts
+      ...(source ? { shiftDate: source.shiftDate } : {}),
+      userId: { $ne: req.user.id },
+      ...(excludeShiftId ? { _id: { $ne: excludeShiftId } } : {}),
     };
-
-    if (excludeShiftId) {
-      filter._id = { $ne: excludeShiftId };
-    }
 
     const list = await Shift.find(filter)
       .populate('userId', 'name email')
@@ -289,5 +230,5 @@ module.exports = {
   updateShift,
   deleteShift,
   updateShiftStatus,
-  getAvailableForSwap, // optional helper used by your UI
+  getAvailableForSwap,
 };
