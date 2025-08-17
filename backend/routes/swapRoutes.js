@@ -5,21 +5,15 @@ const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 const { admin } = require('../middleware/roleMiddleware');
 
-const {
-  createSwap,
-  listSwaps,
-  approveSwap,
-  rejectSwap,
-  cancelSwap,
-} = require('../controllers/swapController');
+// Import the controller as a single object to avoid name mismatches
+const swapCtrl = require('../controllers/swapController');
 
-// Create + List
-router.post('/', protect, createSwap);
-router.get('/', protect, listSwaps);
+// User & Admin can list/create
+router.get('/',  protect, swapCtrl.listSwaps);
+router.post('/', protect, swapCtrl.createSwap);
 
-// Actions
-router.patch('/:id/approve', protect, admin, approveSwap);
-router.patch('/:id/reject',  protect, admin, rejectSwap);
-router.patch('/:id/cancel',  protect, cancelSwap);
+// Admin decisions
+router.patch('/:id/approve', protect, admin, swapCtrl.approveSwap);
+router.patch('/:id/reject',  protect, admin, swapCtrl.rejectSwap);
 
 module.exports = router;
