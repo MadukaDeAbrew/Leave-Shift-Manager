@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import axiosInstance from '../axiosConfig';
 import { useAuth } from '../context/AuthContext';
 import ShiftForm from '../components/ShiftForm';
+import ShiftDayView from '../components/ShiftDayView';
 
 const LIMIT = 10;
 const STATUS_OPTIONS = ['All', 'Scheduled', 'Completed', 'Cancelled'];
@@ -38,6 +39,9 @@ export default function ShiftsPage() {
   const [err, setErr] = useState('');
   const alertRef = useRef(null);
 
+  // View toggle
+  const [viewMode, setViewMode] = useState('table'); // 'table' | 'day'
+
   // Modal state for create/edit
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
@@ -49,8 +53,7 @@ export default function ShiftsPage() {
     role: '',
     status: 'All',
   });
-  // flip this to trigger refetch when Apply is clicked
-  const [filtersVersion, setFiltersVersion] = useState(0);
+  const [filtersVersion, setFiltersVersion] = useState(0); // bump to refetch
 
   const updateFilter = (name) => (e) =>
     setFilters((f) => ({ ...f, [name]: e.target.value }));
@@ -66,17 +69,15 @@ export default function ShiftsPage() {
     setFiltersVersion((v) => v + 1);
   };
 
-  // Build params for backend
   const buildParams = () => {
     const params = { page, limit: LIMIT };
-    if (filters.start) params.start = filters.start;    // expect YYYY-MM-DD
-    if (filters.end)   params.end   = filters.end;      // expect YYYY-MM-DD
+    if (filters.start) params.start = filters.start;    // YYYY-MM-DD
+    if (filters.end)   params.end   = filters.end;      // YYYY-MM-DD
     if (filters.role?.trim()) params.role = filters.role.trim();
     if (filters.status && filters.status !== 'All') params.status = filters.status;
     return params;
   };
 
-  // Fetch with paging + filters (User Story 9.2)
   const fetchShifts = async () => {
     setErr(''); setOk('');
     try {
@@ -96,10 +97,8 @@ export default function ShiftsPage() {
     }
   };
 
-  // Refetch when page or filtersVersion changes
   useEffect(() => { fetchShifts(); /* eslint-disable-next-line */ }, [page, filtersVersion]);
 
-  // Auto-dismiss banners & focus for a11y
   useEffect(() => {
     if (ok || err) {
       alertRef.current?.focus();
@@ -111,7 +110,6 @@ export default function ShiftsPage() {
   const openCreate = () => { setEditTarget(null); setShowForm(true); };
   const openEdit = (row) => { setEditTarget(row); setShowForm(true); };
 
-  // Called by ShiftForm after successful POST/PUT
   const handleSaved = (saved) => {
     setShifts(prev => {
       const idx = prev.findIndex(s => s._id === saved._id);
@@ -125,7 +123,6 @@ export default function ShiftsPage() {
     setEditTarget(null);
   };
 
-  // Delete (admin)
   const removeShift = async (id) => {
     if (!window.confirm('Delete this shift?')) return;
     try {
@@ -226,6 +223,27 @@ export default function ShiftsPage() {
         </div>
       </div>
 
+      {/* View toggle */}
+      <div className="flex items-center gap-2 mb-4">
+        <span className="text-sm text-[#4b5563]">View:</span>
+        <button
+          onClick={() => setViewMode('table')}
+          className={`px-3 py-1 rounded border ${viewMode === 'table'
+            ? 'bg-[#1e3a8a] text-white border-[#1e3a8a]'
+            : 'bg-white text-[#1e3a8a] border-[#cbd5e1] hover:bg-[#eef2ff]'}`}
+        >
+          Table
+        </button>
+        <button
+          onClick={() => setViewMode('day')}
+          className={`px-3 py-1 rounded border ${viewMode === 'day'
+            ? 'bg-[#1e3a8a] text-white border-[#1e3a8a]'
+            : 'bg-white text-[#1e3a8a] border-[#cbd5e1] hover:bg-[#eef2ff]'}`}
+        >
+          Day View
+        </button>
+      </div>
+
       {/* Success/Error */}
       {(ok || err) && (
         <div
@@ -254,12 +272,21 @@ export default function ShiftsPage() {
         </div>
       )}
 
-      {/* Shifts table */}
+      {/* Shifts area: conditionally render Table vs Day View */}
       <div className="bg-white border border-[#cbd5e1] rounded shadow overflow-x-auto">
         {loading ? (
           <div className="p-4">Loading…</div>
         ) : shifts.length === 0 ? (
           <div className="p-4 text-[#4b5563]">No shifts found.</div>
+        ) : viewMode === 'day' ? (
+          <div className="p-3">
+            <ShiftDayView
+              shifts={shifts}
+              isAdmin={isAdmin}
+              onEdit={(row) => openEdit(row)}
+              onDelete={(id) => removeShift(id)}
+            />
+          </div>
         ) : (
           <table className="min-w-full">
             <thead>
