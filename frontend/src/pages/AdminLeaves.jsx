@@ -1,3 +1,4 @@
+// frontend/src/pages/AdminLeaves.jsx
 import { useEffect, useMemo, useRef, useState } from 'react';
 import axiosInstance from '../axiosConfig';
 import { useAuth } from '../context/AuthContext';
@@ -11,17 +12,14 @@ export default function AdminLeaves() {
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [total, setTotal] = useState(0);
-  const [statusTab, setStatusTab] = useState('Pending'); // start on Pending for admins
+  const [statusTab, setStatusTab] = useState('Pending');
 
   const [loading, setLoading] = useState(true);
   const [ok, setOk] = useState('');
   const [err, setErr] = useState('');
   const alertRef = useRef(null);
 
-  const queryStatus = useMemo(
-    () => (statusTab === 'All' ? undefined : statusTab),
-    [statusTab]
-  );
+  const queryStatus = useMemo(() => (statusTab === 'All' ? undefined : statusTab), [statusTab]);
 
   const fetchLeaves = async () => {
     setErr(''); setOk('');
@@ -88,21 +86,16 @@ export default function AdminLeaves() {
     }
   };
 
-  // ✅ NEW: Admin delete (always allowed by your backend controller)
-  const remove = async (id) => {
-    if (!window.confirm('Delete this leave request? This cannot be undone.')) return;
-    setErr(''); setOk('');
-    try {
-      await axiosInstance.delete(`/api/leaves/${id}`);
-      setRows(prev => prev.filter(r => r._id !== id));
-      setOk('Leave request deleted.');
-      // Optionally refresh counters/pagination if you like:
-      // fetchLeaves();
-    } catch (e) {
-      const msg = e?.response?.data?.message || 'Failed to delete leave.';
-      setErr(msg);
-    }
-  };
+  // Guard if a non-admin lands here for any reason
+  if (user?.role !== 'admin') {
+    return (
+      <div className="max-w-3xl mx-auto mt-10 p-4">
+        <div className="p-4 bg-red-50 border border-red-200 text-red-800 rounded">
+          You need admin privileges to view this page.
+        </div>
+      </div>
+    );
+  }
 
   const canPrev = page > 1;
   const canNext = page < pages;
@@ -120,17 +113,6 @@ export default function AdminLeaves() {
       {n}
     </button>
   );
-
-  // Guard: admin-only
-  if (user?.role !== 'admin') {
-    return (
-      <div className="max-w-3xl mx-auto mt-10 p-4">
-        <div className="p-4 bg-red-50 border border-red-200 text-red-800 rounded">
-          You need admin privileges to view this page.
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="max-w-6xl mx-auto mt-8 p-4">
@@ -205,7 +187,7 @@ export default function AdminLeaves() {
                     <span className={statusPill(l.status || 'Pending')}>{l.status || 'Pending'}</span>
                   </td>
                   <td className="p-3 border-b">
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex gap-2">
                       <button
                         onClick={() => approve(l._id)}
                         disabled={l.status === 'Approved'}
@@ -227,14 +209,6 @@ export default function AdminLeaves() {
                         }`}
                       >
                         Reject
-                      </button>
-                      {/* ✅ NEW: Delete button (always enabled for admin) */}
-                      <button
-                        onClick={() => remove(l._id)}
-                        className="px-3 py-1 rounded bg-gray-800 text-white hover:bg-black"
-                        title="Delete request"
-                      >
-                        Delete
                       </button>
                     </div>
                   </td>
