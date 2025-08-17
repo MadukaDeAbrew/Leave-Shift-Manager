@@ -1,23 +1,14 @@
 // backend/models/SwapRequest.js
 const mongoose = require('mongoose');
+const { Schema } = mongoose;
 
-const SwapRequestSchema = new mongoose.Schema(
+const SwapRequestSchema = new Schema(
   {
-    requesterId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-
-    // The shift the requester wants to give up (must currently belong to requester)
-    fromShiftId: { type: mongoose.Schema.Types.ObjectId, ref: 'Shift', required: true },
-
-    // The shift the requester wants to take (may be unassigned or belong to someone else)
-    toShiftId:   { type: mongoose.Schema.Types.ObjectId, ref: 'Shift', required: true },
-
-    reason: { type: String, default: '' },
-
-    status: {
-      type: String,
-      enum: ['Pending', 'Approved', 'Rejected'],
-      default: 'Pending',
-    },
+    fromShiftId: { type: Schema.Types.ObjectId, ref: 'Shift', required: true },
+    toShiftId:   { type: Schema.Types.ObjectId, ref: 'Shift', required: true },
+    requester:   { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    reason:      { type: String, default: '' },
+    status:      { type: String, enum: ['Pending', 'Approved', 'Rejected', 'Cancelled'], default: 'Pending' },
   },
   { timestamps: true }
 );

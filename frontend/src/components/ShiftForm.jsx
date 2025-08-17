@@ -3,21 +3,23 @@ import axiosInstance from '../axiosConfig';
 import { useAuth } from '../context/AuthContext';
 
 /**
- * Admin-only Shift assignment form (no 15-min rule)
+ * Admin-only Shift assignment form
  * Props:
  *  - onClose?: () => void
  *  - onSaved?: (savedShift) => void
- *  - initial?: existing shift {_id, userId, shiftDate, startTime, endTime, role}
+ *  - initial?: existing shift
  *
- * If /api/users isn’t available, the component falls back to a plain “assignee email” input.
+ * Notes:
+ *  - If /api/users exists, we'll show a user select (but it's optional).
+ *  - If it does not, we show an optional email field.
  */
 export default function ShiftForm({ onClose, onSaved, initial }) {
-  const { user } = useAuth(); // only admins should see this
-  const [useUserList, setUseUserList] = useState(true); // toggled off when /api/users fails
+  const { user } = useAuth();
+  const [useUserList, setUseUserList] = useState(true);
 
   const [assignee, setAssignee] = useState({
     userId: initial?.userId?._id || initial?.userId || '',
-    email:  '',
+    email: '',
   });
 
   const [form, setForm] = useState({
@@ -33,13 +35,11 @@ export default function ShiftForm({ onClose, onSaved, initial }) {
   const [error, setError] = useState('');
   const [ok, setOk] = useState('');
 
-  // Try to load users (admin list). If it fails, we’ll ask for email instead.
   useEffect(() => {
     const loadUsers = async () => {
       try {
         const res = await axiosInstance.get('/api/users', { params: { limit: 1000 } });
-        const list = Array.isArray(res.data?.users) ? res.data.users
-                    : (Array.isArray(res.data) ? res.data : []);
+        const list = Array.isArray(res.data?.users) ? res.data.users : (Array.isArray(res.data) ? res.data : []);
         setUsers(list);
         setUseUserList(true);
       } catch {
@@ -52,7 +52,6 @@ export default function ShiftForm({ onClose, onSaved, initial }) {
   const onChange = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }));
   const onBlur = (e) => setTouched((t) => ({ ...t, [e.target.name]: true }));
 
-  // Basic validation (no 15-min rule)
   const errors = useMemo(() => {
     const e = {};
     if (!form.shiftDate) e.shiftDate = 'Date is required.';
@@ -62,15 +61,9 @@ export default function ShiftForm({ onClose, onSaved, initial }) {
       e.endTime = 'End time must be after start time.';
     }
     if (!form.role.trim()) e.role = 'Role/Position is required.';
-
-    if (useUserList) {
-      if (!assignee.userId) e.userId = 'Select an assignee.';
-    } else {
-      if (!assignee.email.trim()) e.email = 'Enter the assignee email.';
-      else if (!/^\S+@\S+\.\S+$/.test(assignee.email.trim())) e.email = 'Invalid email format.';
-    }
+    // Assignee is OPTIONAL now — no userId/email error here.
     return e;
-  }, [form, assignee, useUserList]);
+  }, [form]);
 
   const hasErrors = Object.keys(errors).length > 0;
   const showErr = (name) => (!!errors[name] && (touched[name] || saving));
@@ -78,28 +71,27 @@ export default function ShiftForm({ onClose, onSaved, initial }) {
   const submit = async (e) => {
     e.preventDefault();
     setError(''); setOk('');
-    setTouched({ shiftDate: true, startTime: true, endTime: true, role: true, userId: true, email: true });
+    setTouched({ shiftDate: true, startTime: true, endTime: true, role: true });
     if (hasErrors) return;
 
     try {
       setSaving(true);
       const payload = {
-        shiftDate: form.shiftDate, // "YYYY-MM-DD"
-        startTime: form.startTime, // "HH:MM"
-        endTime:   form.endTime,   // "HH:MM"
+        shiftDate: form.shiftDate,
+        startTime: form.startTime,
+        endTime:   form.endTime,
         role:      form.role.trim(),
-        // allowPast: true, // <- add this if you need to permit past dates
       };
-      if (useUserList) payload.userId = assignee.userId;
-      else payload.userEmail = assignee.email.trim(); // backend will resolve email -> userId
-
-      let res;
-      if (initial?._id) {
-        console.log('Shift payload:', payload);
-        res = await axiosInstance.put(`/api/shifts/${initial._id}`, payload);
-      } else {
-        res = await axiosInstance.post('/api/shifts', payload);
+      // Only include an assignee if provided
+      if (useUserList) {
+        if (assignee.userId) payload.userId = assignee.userId;
+      } else if (assignee.email.trim()) {
+        payload.userEmail = assignee.email.trim();
       }
+
+      const res = initial?._id
+        ? await axiosInstance.put(`/api/shifts/${initial._id}`, payload)
+        : await axiosInstance.post('/api/shifts', payload);
 
       setOk(`Shift ${initial?._id ? 'updated' : 'created'} successfully.`);
       onSaved?.(res.data);
@@ -107,7 +99,6 @@ export default function ShiftForm({ onClose, onSaved, initial }) {
     } catch (err) {
       const msg = err?.response?.data?.message || 'Failed to save shift.';
       setError(msg);
-      console.error('Shift save failed:', err?.response?.status, err?.response?.data || err?.message);
     } finally {
       setSaving(false);
     }
@@ -124,7 +115,6 @@ export default function ShiftForm({ onClose, onSaved, initial }) {
       {error && <div className="p-2 bg-red-50 text-red-700 rounded">{error}</div>}
       {ok && <div className="p-2 bg-green-50 text-green-800 rounded">{ok}</div>}
 
-      {/* Date */}
       <label className="block">
         <span className="block text-sm text-[#4b5563] mb-1">Date</span>
         <input
@@ -139,7 +129,6 @@ export default function ShiftForm({ onClose, onSaved, initial }) {
         {showErr('shiftDate') && <p className="text-sm text-red-600 mt-1">{errors.shiftDate}</p>}
       </label>
 
-      {/* Time */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <label className="block">
           <span className="block text-sm text-[#4b5563] mb-1">Start Time</span>
@@ -170,7 +159,6 @@ export default function ShiftForm({ onClose, onSaved, initial }) {
         </label>
       </div>
 
-      {/* Role */}
       <label className="block">
         <span className="block text-sm text-[#4b5563] mb-1">Role / Position</span>
         <input
@@ -186,38 +174,36 @@ export default function ShiftForm({ onClose, onSaved, initial }) {
         {showErr('role') && <p className="text-sm text-red-600 mt-1">{errors.role}</p>}
       </label>
 
-      {/* Assignee */}
+      {/* Optional assignee */}
       {useUserList ? (
         <label className="block">
-          <span className="block text-sm text-[#4b5563] mb-1">Assign to</span>
+          <span className="block text-sm text-[#4b5563] mb-1">Assign to (optional)</span>
           <select
             value={assignee.userId}
             onChange={(e) => setAssignee((a) => ({ ...a, userId: e.target.value }))}
-            onBlur={() => setTouched((t) => ({ ...t, userId: true }))}
-            className={`w-full p-2 border rounded bg-white ${showErr('userId') ? 'border-red-500' : 'border-[#cbd5e1]'}`}
+            className="w-full p-2 border rounded bg-white border-[#cbd5e1]"
           >
-            <option value="">Select user…</option>
+            <option value="">Unassigned</option>
             {users.map((u) => (
               <option key={u._id} value={u._id}>
                 {u.name} ({u.email})
               </option>
             ))}
           </select>
-          {showErr('userId') && <p className="text-sm text-red-600 mt-1">{errors.userId}</p>}
         </label>
       ) : (
         <label className="block">
-          <span className="block text-sm text-[#4b5563] mb-1">Assignee Email</span>
+          <span className="block text-sm text-[#4b5563] mb-1">Assignee Email (optional)</span>
           <input
             type="email"
             value={assignee.email}
             onChange={(e) => setAssignee((a) => ({ ...a, email: e.target.value }))}
-            onBlur={() => setTouched((t) => ({ ...t, email: true }))}
             placeholder="user@example.com"
-            className={`w-full p-2 border rounded ${showErr('email') ? 'border-red-500' : 'border-[#cbd5e1]'}`}
+            className="w-full p-2 border rounded border-[#cbd5e1]"
           />
-          {showErr('email') && <p className="text-sm text-red-600 mt-1">{errors.email}</p>}
-          <p className="text-xs text-gray-500 mt-1">Couldn’t load user list—enter the employee’s email instead.</p>
+          <p className="text-xs text-gray-500 mt-1">
+            Leave blank to keep shift unassigned.
+          </p>
         </label>
       )}
 
