@@ -34,7 +34,7 @@ Admin approval for swap requests
 * **Nodejs [**[https://nodejs.org/en](https://nodejs.org/en)]** **
 * **Git [**[https://git-scm.com/](https://git-scm.com/)]** **
 * **VS code editor** [[https://code.visualstudio.com/](https://code.visualstudio.com/)]** **
-* **MongoDB Account** [[https://account.mongodb.com/account/login](https://account.mongodb.com/account/login)]** - In tutorial, we have also showed how can you create account and database: follow step number 2.**
+* **MongoDB Account** [[https://account.mongodb.com/account/login](https://account.mongodb.com/account/login)]** 
 * **GitHub Account** [[https://github.com/signup?source=login](https://github.com/signup?source=login)]** **
 
 ---
@@ -85,3 +85,25 @@ Public URL
 
 The deployed project is available at:
 http://<your-ec2-url>:3000
+
+5. Sample test data
+Admin user 1:
+username: admin1@gmail.com
+password: Admin1@lsm
+
+Admin user 2:
+username: admin2@gmail.com
+password: Admin2@lsm
+
+Admin user 1:
+username: admin1@gmail.com
+password: Admin1@lsm
+
+General user 1:
+username: user1@gmail.com
+password: User1@lsm
+
+
+General user 2:
+username: user2@gmail.com
+password: User2@lsm
