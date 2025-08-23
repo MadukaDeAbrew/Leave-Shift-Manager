@@ -66,7 +66,7 @@ describe('leaveController.createLeave', function () {
           .and(sinon.match.has('startDate'))
           .and(sinon.match.has('endDate'))
           .and(sinon.match.has('leaveType', 'Annual'))
-          .and(sinon.match.has('reason', 'Trip'))
+          .and(sinon.match.has('reason', 'Family Trip'))
       )
     ).to.equal(true);
 
