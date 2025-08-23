@@ -54,10 +54,14 @@ const getLeaves = async (req, res) => {
  * - User creates a leave request
  * Body: { startDate, endDate, reason?, leaveType? }
  */
+
 const createLeave = async (req, res) => {
   try {
-    const { startDate, endDate, reason, leaveType } = req.body;
+    if (!req.user?.id) {
+      return res.status(401).json({ success: false, message: 'Unauthenticated' });
+    }
 
+    const { startDate, endDate, reason, leaveType } = req.body;
     if (!startDate) return res.status(400).json({ success: false, message: 'startDate is required' });
     if (!endDate)   return res.status(400).json({ success: false, message: 'endDate is required' });
 
@@ -71,7 +75,7 @@ const createLeave = async (req, res) => {
     }
 
     const leave = await Leave.create({
-      userId: req.user.id,               // assumes auth has set req.user
+      userId: req.user.id,
       startDate: sd,
       endDate: ed,
       reason: (reason || '').trim(),
