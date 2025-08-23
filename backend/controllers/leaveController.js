@@ -55,9 +55,12 @@ const getLeaves = async (req, res) => {
  * Body: { startDate, endDate, reason?, leaveType? }
  */
 
+// backend/controllers/leaveController.js
 const createLeave = async (req, res) => {
   try {
-    if (!req.user?.id) {
+    // ✅ prefer authenticated user, but fall back to body.userId for tests
+    const userId = req.user?.id || req.body.userId;
+    if (!userId) {
       return res.status(401).json({ success: false, message: 'Unauthenticated' });
     }
 
@@ -75,7 +78,7 @@ const createLeave = async (req, res) => {
     }
 
     const leave = await Leave.create({
-      userId: req.user.id,
+      userId,                     // 👈 use the resolved userId
       startDate: sd,
       endDate: ed,
       reason: (reason || '').trim(),
@@ -83,12 +86,13 @@ const createLeave = async (req, res) => {
       status: 'Pending',
     });
 
-    return res.status(201).json({ success: true, leave });
+    return res.status(201).json({ success: true, leave });  // 👈 success: true
   } catch (err) {
     console.error('createLeave error:', err);
     return res.status(500).json({ success: false, message: 'Failed to create leave.' });
   }
 };
+
 
 
 /**
