@@ -58,20 +58,20 @@ const createLeave = async (req, res) => {
   try {
     const { startDate, endDate, reason, leaveType } = req.body;
 
-    if (!startDate) return res.status(400).json({ message: 'startDate is required' });
-    if (!endDate)   return res.status(400).json({ message: 'endDate is required' });
+    if (!startDate) return res.status(400).json({ success: false, message: 'startDate is required' });
+    if (!endDate)   return res.status(400).json({ success: false, message: 'endDate is required' });
 
     const sd = new Date(startDate);
     const ed = new Date(endDate);
     if (Number.isNaN(sd.getTime()) || Number.isNaN(ed.getTime())) {
-      return res.status(400).json({ message: 'Invalid date(s) provided' });
+      return res.status(400).json({ success: false, message: 'Invalid date(s) provided' });
     }
     if (sd > ed) {
-      return res.status(400).json({ message: 'startDate must be on or before endDate' });
+      return res.status(400).json({ success: false, message: 'startDate must be on or before endDate' });
     }
 
     const leave = await Leave.create({
-      userId: req.user.id,
+      userId: req.user.id,               // assumes auth has set req.user
       startDate: sd,
       endDate: ed,
       reason: (reason || '').trim(),
@@ -79,12 +79,13 @@ const createLeave = async (req, res) => {
       status: 'Pending',
     });
 
-    res.status(201).json(leave);
+    return res.status(201).json({ success: true, leave });
   } catch (err) {
     console.error('createLeave error:', err);
-    res.status(500).json({ message: 'Failed to create leave.' });
+    return res.status(500).json({ success: false, message: 'Failed to create leave.' });
   }
 };
+
 
 /**
  * PUT /api/leaves/:id
