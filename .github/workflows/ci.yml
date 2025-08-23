@@ -2,69 +2,63 @@ name: Backend CI
 
 on:
   push:
-    branches:
-      - main  # Trigger CI on pushes to the main branch
+    branches: [main]              # push to main to trigger
   pull_request:
-    branches:
-      - main  # Trigger CI on pull requests to the main branch
+    branches: [main]
+  workflow_dispatch:              # lets you click "Run workflow" in the UI
 
 jobs:
   test:
-    name: Run Tests
-    runs-on: self-hosted
+    name: Run Backend Tests
+    runs-on: [self-hosted, Linux, X64]   # matches your runner labels
+    # environment: MONGO_URI             # optional: only if you really use a GH Environment
 
     strategy:
       matrix:
-        node-version: [22] # Test on multiple Node.js versions
-
-
-    environment: MONGO_URI
+        node-version: [22]
 
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    # Set up Node.js
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: ${{ matrix.node-version }}
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
 
-    - name: Print Env Secret
+      # Write .env from your single multiline secret "PROD"
+      - name: Write backend .env from PROD secret
+        working-directory: ./backend
+        shell: bash
+        run: |
+          cat > .env <<'ENV'
+          ${{ secrets.PROD }}
+          ENV
 
-      env:
-        MONGO_URI: ${{ secrets.MONGO_URI }}
-        JWT_SECRET: ${{ secrets.JWT_SECRET }}
-        PORT: ${{ secrets.PORT }}
-      run: | 
-        echo "Secret 1 is: $MONGO_URI"
-        echo "Secret 2 is: $JWT_SECRET"
-        echo "Secret 3 is: $PORT"
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
 
-    # Install dependencies for backend
-    - name: Install Backend Dependencies
-      working-directory: ./backend
-      run: npm install
+      - name: Run backend tests
+        working-directory: ./backend
+        env:
+          # These envs are available to node at runtime; your .env is already written above.
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          PORT: ${{ secrets.PORT }}
+        run: npm test
 
-    # Run backend tests
-    - name: Run Backend Tests
-      env:
-        MONGO_URI: ${{ secrets.MONGO_URI }}
-        JWT_SECRET: ${{ secrets.JWT_SECRET }}
-        PORT: ${{ secrets.PORT }}
-      working-directory: ./backend
-      run: npm test
-
-
-    - run: npm ci
-    - run: | 
-        cd ./backend
-        touch .env
-        echo "${{ secrets.PROD }}" > .env
-    - run: pm2 restart all
-
-
-
-  
-
- 
+      # OPTIONAL deploy step (only if this runner hosts your live app)
+      # - name: Deploy (PM2 restart)
+      #   if: ${{ success() && github.ref == 'refs/heads/main' }}
+      #   run: |
+      #     npm i -g pm2 >/dev/null 2>&1 || true
+      #     pm2 restart backend || pm2 start ./backend/server.js --name backend
+      #     pm2 save
