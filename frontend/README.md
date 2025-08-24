@@ -88,6 +88,7 @@ The deployed project is available at:
 http://<your-ec2-url>:3000
 
 5. Sample test data
+
 Admin user 1:
 username: admin1@gmail.com
 password: Admin1@lsm
@@ -96,9 +97,6 @@ Admin user 2:
 username: admin2@gmail.com
 password: Admin2@lsm
 
-Admin user 1:
-username: admin1@gmail.com
-password: Admin1@lsm
 
 General user 1:
 username: user1@gmail.com
