@@ -17,7 +17,15 @@ app.use('/api/shifts', require('./routes/shiftRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/swaps', require('./routes/swapRoutes'));
 
-
+// simple health check (no auth)
+app.get('/api/health', (req, res) => {
+  res.status(200).json({
+    ok: true,
+    uptime: process.uptime(),
+    ts: new Date().toISOString()
+  });
+});
+app.get('/', (_req, res) => res.send('OK'));
 //app.use('/api/tasks', require('./routes/taskRoutes'));
 
 // Export the app object for testing
