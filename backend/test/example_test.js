@@ -1,40 +1,39 @@
-// backend/test/example_test.js
-const sinon = require('sinon');
-const mongoose = require('mongoose');
-const { expect } = require('chai');
 
-// Models
+const chai = require('chai');
+const chaiHttp = require('chai-http');
+const http = require('http');
+const app = require('../server');              
+const connectDB = require('../config/db');     
+const mongoose = require('mongoose');
+const sinon = require('sinon');
+
 const Leave = require('../models/Leave');
 const Shift = require('../models/Shift');
 
-// Controllers
 const leaveController = require('../controllers/leaveController');
 const shiftController = require('../controllers/shiftController');
 
-/** Helper: await until res.json is called */
-function makeResolvableRes() {
-  let resolve;
-  const done = new Promise((r) => (resolve = r));
-  const res = {
-    statusCode: null,
-    payload: null,
-    status: sinon.stub().callsFake((code) => {
-      res.statusCode = code;
-      return res;
-    }),
-    json: sinon.stub().callsFake((data) => {
-      res.payload = data;
-      resolve();
-    }),
+const { expect } = chai;
+chai.use(chaiHttp);
+
+
+let server;
+let port;
+
+
+function makeRes() {
+  return {
+    status: sinon.stub().returnsThis(),
+    json: sinon.spy(),
   };
-  return { res, done };
 }
 
-describe('leaveController.createLeave', function () {
-  this.timeout(8000);
+/* ------------------------------- LEAVES ---------------------------------- */
+
+describe('Leave Controller Tests (tutorial style)', () => {
   afterEach(() => sinon.restore());
 
-  it('should create a leave request (201) on valid input', async () => {
+  it('createLeave: should 201 and return created leave', async () => {
     const userId = new mongoose.Types.ObjectId().toString();
     const req = {
       user: { id: userId },
@@ -42,10 +41,10 @@ describe('leaveController.createLeave', function () {
         startDate: '2025-12-30',
         endDate: '2025-12-31',
         leaveType: 'Annual',
-        reason: 'Trip',
+        reason: 'Family Trip',
       },
     };
-    const { res, done } = makeResolvableRes();
+    const res = makeRes();
 
     const created = {
       _id: new mongoose.Types.ObjectId(),
@@ -57,24 +56,13 @@ describe('leaveController.createLeave', function () {
     const createStub = sinon.stub(Leave, 'create').resolves(created);
 
     await leaveController.createLeave(req, res);
-    await done;
 
-    expect(createStub.calledOnce).to.equal(true);
-    expect(
-      createStub.calledWithMatch(
-        sinon.match.has('userId', userId)
-          .and(sinon.match.has('startDate'))
-          .and(sinon.match.has('endDate'))
-          .and(sinon.match.has('leaveType', 'Annual'))
-          .and(sinon.match.has('reason', 'Family Trip'))
-      )
-    ).to.equal(true);
-
-    expect(res.status.calledWith(201)).to.equal(true);
-    expect(res.payload).to.deep.equal(created);
+    expect(createStub.calledOnceWith({ userId, ...req.body })).to.be.true;
+    expect(res.status.calledWith(201)).to.be.true;
+    expect(res.json.calledWith(created)).to.be.true;
   });
 
-  it('should return 400 if startDate is after endDate', async () => {
+  it('createLeave: should 400 when startDate > endDate', async () => {
     const userId = new mongoose.Types.ObjectId().toString();
     const req = {
       user: { id: userId },
@@ -85,21 +73,21 @@ describe('leaveController.createLeave', function () {
         reason: 'Oops',
       },
     };
-    const { res, done } = makeResolvableRes();
+    const res = makeRes();
 
-    const createStub = sinon.stub(Leave, 'create'); // must NOT be called
+    const createStub = sinon.stub(Leave, 'create'); 
 
     await leaveController.createLeave(req, res);
-    await done;
 
-    expect(createStub.called).to.equal(false);
-    expect(res.status.calledWith(400)).to.equal(true);
-    expect(res.payload).to.have.property('message');
+    expect(createStub.called).to.be.false;
+    expect(res.status.calledWith(400)).to.be.true;
+    expect(res.json.calledWithMatch({ message: sinon.match.string })).to.be.true;
   });
 });
 
-describe('shiftController.addShift', function () {
-  this.timeout(8000);
+/* ------------------------------- SHIFTS ---------------------------------- */
+
+describe('Shift Controller Tests (tutorial style)', () => {
   afterEach(() => sinon.restore());
 
   const tomorrowISO = () => {
@@ -108,46 +96,34 @@ describe('shiftController.addShift', function () {
     return d.toISOString().slice(0, 10);
   };
 
-  // ⚠️ Skip the flaky happy-path test for now to avoid timeouts.
-  it.skip('should create a shift (201) for admin with valid, non-overlapping times', async () => {
-    const adminId = new mongoose.Types.ObjectId().toString();
+  it('addShift: should 403 for non-admin user', async () => {
     const employeeId = new mongoose.Types.ObjectId().toString();
-
     const req = {
-      user: { id: adminId, role: 'admin' },
+      user: { id: employeeId, role: 'user' },
       body: {
         userId: employeeId,
         shiftDate: tomorrowISO(),
         startTime: '09:00',
         endTime: '17:00',
-        role: 'Cashier',
+        role: 'CSR',
       },
     };
-    const { res, done } = makeResolvableRes();
+    const res = makeRes();
 
-    sinon.stub(Shift, 'find').resolves([]);
-    const created = {
-      _id: new mongoose.Types.ObjectId(),
-      userId: employeeId,
-      shiftDate: new Date(req.body.shiftDate),
-      startTime: '09:00',
-      endTime: '17:00',
-      role: 'Cashier',
-      status: 'Scheduled',
-    };
-    sinon.stub(Shift, 'create').resolves(created);
+    const findStub = sinon.stub(Shift, 'find');    
+    const createStub = sinon.stub(Shift, 'create'); 
 
     await shiftController.addShift(req, res);
-    await done;
 
-    expect(res.status.calledWith(201)).to.equal(true);
-    expect(res.payload).to.deep.equal(created);
+    expect(findStub.called).to.be.false;
+    expect(createStub.called).to.be.false;
+    expect(res.status.calledWith(403)).to.be.true;
+    expect(res.json.calledWithMatch({ message: sinon.match.string })).to.be.true;
   });
 
-  it('should 400 when date is in the past and allowPast is not set', async () => {
+  it('addShift: should 400 when date is in the past (no allowPast)', async () => {
     const adminId = new mongoose.Types.ObjectId().toString();
     const employeeId = new mongoose.Types.ObjectId().toString();
-
     const pastISO = () => {
       const d = new Date();
       d.setDate(d.getDate() - 2);
@@ -164,21 +140,20 @@ describe('shiftController.addShift', function () {
         role: 'Cashier',
       },
     };
-    const { res, done } = makeResolvableRes();
+    const res = makeRes();
 
-    const findStub = sinon.stub(Shift, 'find');   // should NOT be used
-    const createStub = sinon.stub(Shift, 'create'); // should NOT be called
+    const findStub = sinon.stub(Shift, 'find');     
+    const createStub = sinon.stub(Shift, 'create'); 
 
     await shiftController.addShift(req, res);
-    await done;
 
-    expect(findStub.called).to.equal(false);
-    expect(createStub.called).to.equal(false);
-    expect(res.status.calledWith(400)).to.equal(true);
-    expect(res.payload).to.have.property('message');
+    expect(findStub.called).to.be.false;
+    expect(createStub.called).to.be.false;
+    expect(res.status.calledWith(400)).to.be.true;
+    expect(res.json.calledWithMatch({ message: sinon.match.string })).to.be.true;
   });
 
-  it('should 409 when new shift overlaps an existing one for same user/day', async () => {
+  it('addShift: should 409 when overlaps an existing shift', async () => {
     const adminId = new mongoose.Types.ObjectId().toString();
     const employeeId = new mongoose.Types.ObjectId().toString();
 
@@ -192,42 +167,50 @@ describe('shiftController.addShift', function () {
         role: 'Barista',
       },
     };
-    const { res, done } = makeResolvableRes();
+    const res = makeRes();
 
     sinon.stub(Shift, 'find').resolves([{ startTime: '09:00', endTime: '11:00' }]);
-    const createStub = sinon.stub(Shift, 'create'); // should NOT be called
+    const createStub = sinon.stub(Shift, 'create'); 
 
     await shiftController.addShift(req, res);
-    await done;
 
-    expect(createStub.called).to.equal(false);
-    expect(res.status.calledWith(409)).to.equal(true);
-    expect(res.payload).to.have.property('message');
+    expect(createStub.called).to.be.false;
+    expect(res.status.calledWith(409)).to.be.true;
+    expect(res.json.calledWithMatch({ message: sinon.match.string })).to.be.true;
   });
 
-  it('should 403 if a non-admin tries to add a shift', async () => {
+  // If you want a happy-path test, you can unskip this once you’re confident:
+  it.skip('addShift: should 201 and return created shift (happy path)', async () => {
+    const adminId = new mongoose.Types.ObjectId().toString();
     const employeeId = new mongoose.Types.ObjectId().toString();
+
     const req = {
-      user: { id: employeeId, role: 'user' },
+      user: { id: adminId, role: 'admin' },
       body: {
         userId: employeeId,
         shiftDate: tomorrowISO(),
         startTime: '09:00',
         endTime: '17:00',
-        role: 'CSR',
+        role: 'Cashier',
       },
     };
-    const { res, done } = makeResolvableRes();
+    const res = makeRes();
 
-    const findStub = sinon.stub(Shift, 'find');   // should NOT be used
-    const createStub = sinon.stub(Shift, 'create'); // should NOT be called
+    sinon.stub(Shift, 'find').resolves([]);
+    const created = {
+      _id: new mongoose.Types.ObjectId(),
+      userId: employeeId,
+      shiftDate: new Date(req.body.shiftDate),
+      startTime: '09:00',
+      endTime: '17:00',
+      role: 'Cashier',
+      status: 'Scheduled',
+    };
+    sinon.stub(Shift, 'create').resolves(created);
 
     await shiftController.addShift(req, res);
-    await done;
 
-    expect(findStub.called).to.equal(false);
-    expect(createStub.called).to.equal(false);
-    expect(res.status.calledWith(403)).to.equal(true);
-    expect(res.payload).to.have.property('message');
+    expect(res.status.calledWith(201)).to.be.true;
+    expect(res.json.calledWith(created)).to.be.true;
   });
 });
