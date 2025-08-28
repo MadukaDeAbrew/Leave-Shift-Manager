@@ -85,7 +85,7 @@ describe('Leave Controller Tests (tutorial style)', () => {
   });
 });
 
-/* ------------------------------- SHIFTS ---------------------------------- */
+/* ---------------]---------- SHIFTS ------------------------ */
 
 describe('Shift Controller Tests (tutorial style)', () => {
   afterEach(() => sinon.restore());
@@ -179,7 +179,7 @@ describe('Shift Controller Tests (tutorial style)', () => {
     expect(res.json.calledWithMatch({ message: sinon.match.string })).to.be.true;
   });
 
-  // If you want a happy-path test, you can unskip this once you’re confident:
+  /*
   it.skip('addShift: should 201 and return created shift (happy path)', async () => {
     const adminId = new mongoose.Types.ObjectId().toString();
     const employeeId = new mongoose.Types.ObjectId().toString();
@@ -214,3 +214,4 @@ describe('Shift Controller Tests (tutorial style)', () => {
     expect(res.json.calledWith(created)).to.be.true;
   });
 });
+*/
