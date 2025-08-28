@@ -16,7 +16,7 @@ export default function LeaveForm({
   onCancel,
   initial,
   allowPast = false,
-  disabled = false,          // ✅ accept disabled from parent
+  disabled = false,          
 }) {
   const [form, setForm] = useState({
     startDate: initial?.startDate?.slice(0, 10) || '',
