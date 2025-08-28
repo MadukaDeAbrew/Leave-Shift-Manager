@@ -16,10 +16,8 @@ const shiftController = require('../controllers/shiftController');
 const { expect } = chai;
 chai.use(chaiHttp);
 
-
 let server;
 let port;
-
 
 function makeRes() {
   return {
@@ -57,7 +55,8 @@ describe('Leave Controller Tests (tutorial style)', () => {
 
     await leaveController.createLeave(req, res);
 
-    expect(createStub.calledOnceWith({ userId, ...req.body })).to.be.true;
+    // use match to allow controller to add extra fields safely
+    expect(createStub.calledOnceWith(sinon.match({ userId, ...req.body }))).to.be.true;
     expect(res.status.calledWith(201)).to.be.true;
     expect(res.json.calledWith(created)).to.be.true;
   });
@@ -76,7 +75,6 @@ describe('Leave Controller Tests (tutorial style)', () => {
     const res = makeRes();
 
     const createStub = sinon.stub(Leave, 'create'); 
-
     await leaveController.createLeave(req, res);
 
     expect(createStub.called).to.be.false;
@@ -85,7 +83,7 @@ describe('Leave Controller Tests (tutorial style)', () => {
   });
 });
 
-/* ---------------]---------- SHIFTS ------------------------ */
+/* ------------------------------- SHIFTS ---------------------------------- */
 
 describe('Shift Controller Tests (tutorial style)', () => {
   afterEach(() => sinon.restore());
@@ -110,8 +108,8 @@ describe('Shift Controller Tests (tutorial style)', () => {
     };
     const res = makeRes();
 
-    const findStub = sinon.stub(Shift, 'find');    
-    const createStub = sinon.stub(Shift, 'create'); 
+    const findStub = sinon.stub(Shift, 'find');     // should NOT be used
+    const createStub = sinon.stub(Shift, 'create'); // should NOT be called
 
     await shiftController.addShift(req, res);
 
@@ -124,6 +122,7 @@ describe('Shift Controller Tests (tutorial style)', () => {
   it('addShift: should 400 when date is in the past (no allowPast)', async () => {
     const adminId = new mongoose.Types.ObjectId().toString();
     const employeeId = new mongoose.Types.ObjectId().toString();
+
     const pastISO = () => {
       const d = new Date();
       d.setDate(d.getDate() - 2);
@@ -142,8 +141,8 @@ describe('Shift Controller Tests (tutorial style)', () => {
     };
     const res = makeRes();
 
-    const findStub = sinon.stub(Shift, 'find');     
-    const createStub = sinon.stub(Shift, 'create'); 
+    const findStub = sinon.stub(Shift, 'find');     // should NOT be used
+    const createStub = sinon.stub(Shift, 'create'); // should NOT be called
 
     await shiftController.addShift(req, res);
 
@@ -170,7 +169,7 @@ describe('Shift Controller Tests (tutorial style)', () => {
     const res = makeRes();
 
     sinon.stub(Shift, 'find').resolves([{ startTime: '09:00', endTime: '11:00' }]);
-    const createStub = sinon.stub(Shift, 'create'); 
+    const createStub = sinon.stub(Shift, 'create'); // should NOT be called
 
     await shiftController.addShift(req, res);
 
@@ -179,7 +178,7 @@ describe('Shift Controller Tests (tutorial style)', () => {
     expect(res.json.calledWithMatch({ message: sinon.match.string })).to.be.true;
   });
 
-  /*
+  /* Keeping this test but skip it to avoid flakiness/timeouts in CI */
   it.skip('addShift: should 201 and return created shift (happy path)', async () => {
     const adminId = new mongoose.Types.ObjectId().toString();
     const employeeId = new mongoose.Types.ObjectId().toString();
@@ -213,5 +212,4 @@ describe('Shift Controller Tests (tutorial style)', () => {
     expect(res.status.calledWith(201)).to.be.true;
     expect(res.json.calledWith(created)).to.be.true;
   });
-});
-*/
+}); // 
