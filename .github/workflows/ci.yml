@@ -2,90 +2,77 @@ name: Backend CI
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+  workflow_dispatch: {}
 
 jobs:
   test:
-    name: Run Tests & Deploy
-    runs-on: [self-hosted, Linux, X64]
+    name: Run Tests
+    runs-on: self-hosted
+
     strategy:
-      matrix: { node-version: [22] }
+      matrix:
+        node-version: [22]
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    - name: Checkout Code
+      uses: actions/checkout@v3
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
 
-      # Write backend .env from single multiline secret PROD
-      - name: Write backend .env
-        working-directory: ./backend
-        shell: bash
-        run: |
-          cat > .env <<'ENV'
-          ${{ secrets.PROD }}
-          ENV
+    - name: Print Env Secret
+      env:
+        MONGO_URI: ${{ secrets.MONGO_URI }}
+        JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        PORT: ${{ secrets.PORT }}
+      run: | 
+        echo "Secret 1 is: $MONGO_URI"
+        echo "Secret 2 is: $JWT_SECRET"
+        echo "Secret 3 is: $PORT"
 
-      - name: Ensure yarn
-        run: npm i -g yarn
+    - run: pm2 stop all
 
-      # Backend deps
-      - name: Install backend deps (yarn)
-        working-directory: ./backend
-        run: |
-          yarn install
-          # make sure test libs exist even if not committed
-          yarn add -D mocha chai sinon
+    # Backend deps (tutorial uses Yarn)
+    - name: Install Backend Dependencies
+      working-directory: ./backend
+      run: | 
+        npm install --global yarn
+        yarn --version
+        yarn install
 
-      # Frontend deps & build 
-      - name: Install frontend deps & build
-        working-directory: ./frontend
-        run: |
-          sudo rm -rf ./build || true
-          yarn install
-          yarn run build
+    # Frontend deps
+    - name: Install Frontend Dependencies
+      working-directory: ./frontend
+      run: |
+        df -h
+        sudo rm -rf ./build
+        yarn install
 
-      # Run backend tests 
-      - name: Run backend tests
-        working-directory: ./backend
-        env:
-          MONGO_URI: ${{ secrets.MONGO_URI }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          PORT: ${{ secrets.PORT }}
-        shell: bash
-        run: |
-          if npm run -s test >/dev/null 2>&1; then
-            npm test
-          else
-            npx mocha "test/**/*.js" --reporter spec --timeout 10000
-          fi
+    # Build frontend — keep this env so warnings don’t fail CI
+    - name: Build Frontend
+      working-directory: ./frontend
+      env:
+        CI: "false"
+      run: yarn run build
 
-      # Deploy on every push: using pm2 reload (short blip; closer to zero-downtime)
-      - name: Deploy (pm2 reload)
-        if: ${{ success() }}
-        shell: bash
-        run: |
-          npm i -g pm2 >/dev/null 2>&1 || true
+    # Backend tests
+    - name: Run Backend Tests
+      env:
+        MONGO_URI: ${{ secrets.MONGO_URI }}
+        JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        PORT: ${{ secrets.PORT }}
+      working-directory: ./backend
+      run: npm test
 
-          # Backend: reload if exists, else start from backend dir
-          if pm2 describe backend >/dev/null 2>&1; then
-            pm2 reload backend
-          else
-            cd backend
-            pm2 start npm --name backend -- start
-            cd -
-          fi
+    - run: npm ci
+    - run: | 
+        cd ./backend
+        touch .env
+        echo "${{ secrets.PROD }}" > .env
 
-          # Frontend: reload if exists, else serve the fresh build
-          if pm2 describe Frontend >/dev/null 2>&1; then
-            pm2 reload Frontend
-          else
-            cd frontend
-            pm2 serve build 3000 --spa --name Frontend
-            cd -
-          fi
-
-          pm2 save
+    - run: pm2 start all
+    - run: pm2 restart all
