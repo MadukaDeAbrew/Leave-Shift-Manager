@@ -13,8 +13,8 @@ export default axiosInstance;
 import axios from 'axios';
 
 const axiosInstance = axios.create({
-  // REPLACE <YOUR_EC2_IP> with 3.27.187.70 (keep http and :5001)
-  baseURL: 'http://3.107.58.27:5001',
+   //baseURL: 'http://localhost:5001', // local
+  baseURL: 'http://52.62.18.112:5001', // live
   headers: { 'Content-Type': 'application/json' },
 });
 
