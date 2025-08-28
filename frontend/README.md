@@ -3,7 +3,7 @@
 **Overview:** The specific application is designed to help organizations streamline employee scheduling and leave processes. It provides a user-friendly interface for employees to apply for leave, view assigned shifts, and request shift swaps,generate reports while enabling administrators to manage approvals, assign shifts, update lave and shift rules and oversee operations efficiently.The application ensures secure user authentication (signup, login, logout) and role-based access, with built-in validations to prevent scheduling conflicts and improve workflow. This system enhances transparency, reduces manual errors, and boosts productivity for both employees and administrators.
 
 **This apps **contain** the following features:**
-
+**test change for demo**
 -Authentication & Profile
 Signup
 Login
