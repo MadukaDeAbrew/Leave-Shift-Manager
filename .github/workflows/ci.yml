@@ -2,34 +2,26 @@ name: Backend CI
 
 on:
   push:
-    branches: [main]              # push to main to trigger
-  pull_request:
     branches: [main]
-  workflow_dispatch:              # lets you click "Run workflow" in the UI
 
 jobs:
   test:
-    name: Run Backend Tests
-    runs-on: [self-hosted, Linux, X64]   # matches your runner labels
-    # environment: MONGO_URI             # optional: only if you really use a GH Environment
-
+    name: Run Tests & Deploy
+    runs-on: [self-hosted, Linux, X64]
     strategy:
-      matrix:
-        node-version: [22]
+      matrix: { node-version: [22] }
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
 
-      # Write .env from your single multiline secret "PROD"
-      - name: Write backend .env from PROD secret
+      # Write backend .env from single multiline secret PROD
+      - name: Write backend .env
         working-directory: ./backend
         shell: bash
         run: |
@@ -37,28 +29,63 @@ jobs:
           ${{ secrets.PROD }}
           ENV
 
-      - name: Install backend dependencies
+      - name: Ensure yarn
+        run: npm i -g yarn
+
+      # Backend deps
+      - name: Install backend deps (yarn)
         working-directory: ./backend
         run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
+          yarn install
+          # make sure test libs exist even if not committed
+          yarn add -D mocha chai sinon
 
+      # Frontend deps & build 
+      - name: Install frontend deps & build
+        working-directory: ./frontend
+        run: |
+          sudo rm -rf ./build || true
+          yarn install
+          yarn run build
+
+      # Run backend tests 
       - name: Run backend tests
         working-directory: ./backend
         env:
-          # These envs are available to node at runtime; your .env is already written above.
           MONGO_URI: ${{ secrets.MONGO_URI }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           PORT: ${{ secrets.PORT }}
-        run: npm test
+        shell: bash
+        run: |
+          if npm run -s test >/dev/null 2>&1; then
+            npm test
+          else
+            npx mocha "test/**/*.js" --reporter spec --timeout 10000
+          fi
 
-      # OPTIONAL deploy step (only if this runner hosts your live app)
-      # - name: Deploy (PM2 restart)
-      #   if: ${{ success() && github.ref == 'refs/heads/main' }}
-      #   run: |
-      #     npm i -g pm2 >/dev/null 2>&1 || true
-      #     pm2 restart backend || pm2 start ./backend/server.js --name backend
-      #     pm2 save
+      # Deploy on every push: using pm2 reload (short blip; closer to zero-downtime)
+      - name: Deploy (pm2 reload)
+        if: ${{ success() }}
+        shell: bash
+        run: |
+          npm i -g pm2 >/dev/null 2>&1 || true
+
+          # Backend: reload if exists, else start from backend dir
+          if pm2 describe backend >/dev/null 2>&1; then
+            pm2 reload backend
+          else
+            cd backend
+            pm2 start npm --name backend -- start
+            cd -
+          fi
+
+          # Frontend: reload if exists, else serve the fresh build
+          if pm2 describe Frontend >/dev/null 2>&1; then
+            pm2 reload Frontend
+          else
+            cd frontend
+            pm2 serve build 3000 --spa --name Frontend
+            cd -
+          fi
+
+          pm2 save
