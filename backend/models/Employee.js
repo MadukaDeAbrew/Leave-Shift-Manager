@@ -2,7 +2,8 @@ const mongoose = require("mongoose");
 
 const EmployeeSchema = new mongoose.Schema({
   employeeId: { type: String, required: true, unique: true }, 
-  name: { type: String, required: true },
+  firstName: { type: String, required: true },
+  lastName: { type: String, required: true },
   employmentType: { type: String, enum: ["Full Time", "Part Time", "Casual"], required: true },
   role: { type: String, required: true },
   joinedDate: { type: Date, required: true },
