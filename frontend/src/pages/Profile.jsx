@@ -3,17 +3,23 @@ import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../axiosConfig';
 
 const Profile = () => {
-  const { user } = useAuth(); // Access user token from context
+  const { user } = useAuth(); // includes token + systemRole
   const [formData, setFormData] = useState({
-    name: '',
+    firstName: '',
+    lastName: '',
     email: '',
-    university: '',
+    phone: '',
+    pronouns: '',
+    secondaryEmail: '',
     address: '',
+    employeeId: '',
+    employmentType: '',
+    jobRole: '',
+    joinedDate: '',
   });
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Fetch profile data from the backend
     const fetchProfile = async () => {
       setLoading(true);
       try {
@@ -21,10 +27,19 @@ const Profile = () => {
           headers: { Authorization: `Bearer ${user.token}` },
         });
         setFormData({
-          name: response.data.name,
-          email: response.data.email,
-          university: response.data.university || '',
+          firstName: response.data.firstName || '',
+          lastName: response.data.lastName || '',
+          email: response.data.email || '',
+          phone: response.data.phone || '',
+          pronouns: response.data.pronouns || '',
+          secondaryEmail: response.data.secondaryEmail || '',
           address: response.data.address || '',
+          employeeId: response.data.employeeId || '',
+          employmentType: response.data.employmentType || '',
+          jobRole: response.data.jobRole || '',
+          joinedDate: response.data.joinedDate
+            ? response.data.joinedDate.substring(0, 10) // format date
+            : '',
         });
       } catch (error) {
         alert('Failed to fetch profile. Please try again.');
@@ -40,7 +55,17 @@ const Profile = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      await axiosInstance.put('/api/auth/profile', formData, {
+      // Only send editable fields
+      const updatePayload = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        pronouns: formData.pronouns,
+        secondaryEmail: formData.secondaryEmail,
+        address: formData.address,
+      };
+      await axiosInstance.put('/api/auth/profile', updatePayload, {
         headers: { Authorization: `Bearer ${user.token}` },
       });
       alert('Profile updated successfully!');
@@ -59,11 +84,20 @@ const Profile = () => {
     <div className="max-w-md mx-auto mt-20">
       <form onSubmit={handleSubmit} className="bg-white p-6 shadow-md rounded">
         <h1 className="text-2xl font-bold mb-4 text-center">Your Profile</h1>
+
+        {/* Editable personal fields */}
         <input
           type="text"
-          placeholder="Name"
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          placeholder="First Name"
+          value={formData.firstName}
+          onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+          className="w-full mb-4 p-2 border rounded"
+        />
+        <input
+          type="text"
+          placeholder="Last Name"
+          value={formData.lastName}
+          onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
           className="w-full mb-4 p-2 border rounded"
         />
         <input
@@ -75,9 +109,16 @@ const Profile = () => {
         />
         <input
           type="text"
-          placeholder="University"
-          value={formData.university}
-          onChange={(e) => setFormData({ ...formData, university: e.target.value })}
+          placeholder="Phone"
+          value={formData.phone}
+          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+          className="w-full mb-4 p-2 border rounded"
+        />
+        <input
+          type="text"
+          placeholder="Secondary Email"
+          value={formData.secondaryEmail}
+          onChange={(e) => setFormData({ ...formData, secondaryEmail: e.target.value })}
           className="w-full mb-4 p-2 border rounded"
         />
         <input
@@ -87,6 +128,37 @@ const Profile = () => {
           onChange={(e) => setFormData({ ...formData, address: e.target.value })}
           className="w-full mb-4 p-2 border rounded"
         />
+
+        {/* Frozen employee-only fields (readonly for employees) */}
+        <input
+          type="text"
+          placeholder="Employee ID"
+          value={formData.employeeId}
+          readOnly
+          className="w-full mb-4 p-2 border rounded bg-gray-100 cursor-not-allowed"
+        />
+        <input
+          type="text"
+          placeholder="Employment Type"
+          value={formData.employmentType}
+          readOnly
+          className="w-full mb-4 p-2 border rounded bg-gray-100 cursor-not-allowed"
+        />
+        <input
+          type="text"
+          placeholder="Job Role"
+          value={formData.jobRole}
+          readOnly
+          className="w-full mb-4 p-2 border rounded bg-gray-100 cursor-not-allowed"
+        />
+        <input
+          type="date"
+          placeholder="Joined Date"
+          value={formData.joinedDate}
+          readOnly
+          className="w-full mb-4 p-2 border rounded bg-gray-100 cursor-not-allowed"
+        />
+
         <button type="submit" className="w-full bg-blue-600 text-white p-2 rounded">
           {loading ? 'Updating...' : 'Update Profile'}
         </button>

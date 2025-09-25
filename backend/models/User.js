@@ -20,16 +20,16 @@ const userSchema = new mongoose.Schema(
     }, // system access role
 
     // === Employee / Job fields ===
-    employeeId: { type: String, required: true, unique: true }, 
-    firstName: { type: String, required: true, trim: true },
-    lastName: { type: String, required: true, trim: true },
+    employeeId: { type: String, unique: true, sparse: true }, 
+    firstName: { type: String, trim: true },
+    lastName: { type: String, trim: true },
     employmentType: { 
       type: String, 
-      enum: ["Full Time", "Part Time", "Casual"], 
-      required: true 
+      enum: ["Full Time", "Part Time", "Casual", null], 
+      default: null 
     },
-    jobRole: { type: String, required: true, trim: true }, // designation
-    joinedDate: { type: Date, required: true },
+    jobRole: { type: String, trim: true }, // designation
+    joinedDate: { type: Date },
     salaryPerHour: { type: Number },
 
     // === Profile / Personal fields ===
@@ -48,7 +48,7 @@ const userSchema = new mongoose.Schema(
 
 // === Virtual: fullName ===
 userSchema.virtual("fullName").get(function () {
-  return `${this.firstName} ${this.lastName}`;
+  return `${this.firstName || ""} ${this.lastName || ""}`.trim();
 });
 
 userSchema.set("toJSON", { virtuals: true });
