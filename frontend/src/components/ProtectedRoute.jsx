@@ -1,4 +1,3 @@
-
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -8,8 +7,10 @@ export default function ProtectedRoute({ requireAdmin = false }) {
   if (loading) return <div className="p-4">Loading…</div>;
   if (!user) return <Navigate to="/login" replace />;
 
-  if (requireAdmin && user.role !== 'admin') {
+  // FIX: use systemRole instead of role
+  if (requireAdmin && user.systemRole !== 'admin') {
     return <Navigate to="/" replace />;
   }
+
   return <Outlet />;
 }

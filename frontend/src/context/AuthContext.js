@@ -1,22 +1,31 @@
 // frontend/src/context/AuthContext.js
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import axiosInstance from '../axiosConfig';
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import axiosInstance from "../axiosConfig";
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(null);
-  const [user, setUser]   = useState(null);
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // Restore session from localStorage on first mount
   useEffect(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem('auth') || 'null');
+      const saved = JSON.parse(localStorage.getItem("auth") || "null");
       if (saved?.token) {
         setToken(saved.token);
-        setUser(saved.user || null);
-        axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${saved.token}`;
+
+        // Normalize role field to systemRole
+        const normalizedUser = saved.user
+          ? {
+              ...saved.user,
+              systemRole: saved.user.systemRole || saved.user.role || "employee",
+            }
+          : null;
+
+        setUser(normalizedUser);
+        axiosInstance.defaults.headers.common["Authorization"] = `Bearer ${saved.token}`;
       }
     } catch {
       // ignore malformed storage
@@ -27,22 +36,29 @@ export const AuthProvider = ({ children }) => {
 
   // Login: save token+user, set default header, persist
   const login = (jwt, userObj) => {
+    const normalizedUser = userObj
+      ? {
+          ...userObj,
+          systemRole: userObj.systemRole || userObj.role || "employee",
+        }
+      : null;
+
     setToken(jwt);
-    setUser(userObj || null);
-    axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${jwt}`;
-    localStorage.setItem('auth', JSON.stringify({ token: jwt, user: userObj || null }));
+    setUser(normalizedUser);
+    axiosInstance.defaults.headers.common["Authorization"] = `Bearer ${jwt}`;
+    localStorage.setItem("auth", JSON.stringify({ token: jwt, user: normalizedUser }));
   };
 
   // Logout: clear everything
   const logout = () => {
     setToken(null);
     setUser(null);
-    delete axiosInstance.defaults.headers.common['Authorization'];
-    localStorage.removeItem('auth');
+    delete axiosInstance.defaults.headers.common["Authorization"];
+    localStorage.removeItem("auth");
   };
 
-  // 🔑 FIX: check systemRole instead of role
-  const isAdmin = !!user && user.systemRole === 'admin';
+  // 🔑 Correct check
+  const isAdmin = !!user && user.systemRole === "admin";
 
   const value = useMemo(
     () => ({ token, user, isAdmin, loading, login, logout }),

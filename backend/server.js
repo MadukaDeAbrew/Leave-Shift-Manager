@@ -13,10 +13,10 @@ app.use(express.json());
 
 // === Routes ===
 app.use("/api/auth", require("./routes/authRoutes"));   // Login/Register/Profile
-app.use("/api/users", require("./routes/userRoutes")); // Admin employee management
 app.use("/api/leaves", require("./routes/leaveRoutes"));
 app.use("/api/shifts", require("./routes/shiftRoutes"));
 app.use("/api/swaps", require("./routes/swapRoutes"));
+app.use("/api/employees", require("./routes/employeeRoutes"));
 
 // === Health Check ===
 app.get("/api/health", (req, res) => {
