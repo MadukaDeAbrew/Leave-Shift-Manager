@@ -17,8 +17,6 @@ app.use('/api/shifts', require('./routes/shiftRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/swaps', require('./routes/swapRoutes'));
 
-// === New Employee Routes ===
-app.use('/api/employees', require('./routes/employeeRoutes'));
 
 // simple health check (no auth)
 app.get('/api/health', (req, res) => {
