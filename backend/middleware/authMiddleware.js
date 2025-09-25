@@ -10,19 +10,27 @@ const protect = async (req, res, next) => {
   try {
     const token = auth.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id).select('_id name email role');
+
+    const user = await User.findById(decoded.id).select('_id email systemRole');
     if (!user) return res.status(401).json({ message: 'Not authorized' });
 
-    req.user = user; // { _id, name, email, role }
+    // attach normalized user to request
+    req.user = {
+      id: user._id.toString(),
+      email: user.email,
+      systemRole: user.systemRole,
+    };
+
     next();
   } catch (e) {
+    console.error("protect middleware error:", e.message);
     return res.status(401).json({ message: 'Token invalid' });
   }
 };
 
 // Middleware to check if user is an admin
 const adminOnly = (req, res, next) => {
-  if (!req.user || req.user.role !== 'admin') {
+  if (!req.user || req.user.systemRole !== 'admin') {
     return res.status(403).json({ message: 'Access denied: Admins only' });
   }
   next();

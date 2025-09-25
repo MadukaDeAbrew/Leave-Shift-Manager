@@ -41,7 +41,8 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('auth');
   };
 
-  const isAdmin = !!user && user.role === 'admin';
+  // 🔑 FIX: check systemRole instead of role
+  const isAdmin = !!user && user.systemRole === 'admin';
 
   const value = useMemo(
     () => ({ token, user, isAdmin, loading, login, logout }),

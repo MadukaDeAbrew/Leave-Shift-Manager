@@ -1,168 +1,184 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
-import axiosInstance from '../axiosConfig';
+import { useState, useEffect } from "react";
+import { useAuth } from "../context/AuthContext";
+import axiosInstance from "../axiosConfig";
 
 const Profile = () => {
-  const { user } = useAuth(); // includes token + systemRole
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    pronouns: '',
-    secondaryEmail: '',
-    address: '',
-    employeeId: '',
-    employmentType: '',
-    jobRole: '',
-    joinedDate: '',
-  });
-  const [loading, setLoading] = useState(false);
+  const { token } = useAuth();   // ✅ use token directly
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({});
+  const [flash, setFlash] = useState("");
 
   useEffect(() => {
     const fetchProfile = async () => {
-      setLoading(true);
       try {
-        const response = await axiosInstance.get('/api/auth/profile', {
-          headers: { Authorization: `Bearer ${user.token}` },
+        const response = await axiosInstance.get("/api/auth/profile", {
+          headers: { Authorization: `Bearer ${token}` },
         });
-        setFormData({
-          firstName: response.data.firstName || '',
-          lastName: response.data.lastName || '',
-          email: response.data.email || '',
-          phone: response.data.phone || '',
-          pronouns: response.data.pronouns || '',
-          secondaryEmail: response.data.secondaryEmail || '',
-          address: response.data.address || '',
-          employeeId: response.data.employeeId || '',
-          employmentType: response.data.employmentType || '',
-          jobRole: response.data.jobRole || '',
-          joinedDate: response.data.joinedDate
-            ? response.data.joinedDate.substring(0, 10) // format date
-            : '',
-        });
+        console.log("PROFILE API RESPONSE:", response.data);
+
+        const profileData = response.data.user || response.data;
+        setProfile(profileData);
+        setForm(profileData);
       } catch (error) {
-        alert('Failed to fetch profile. Please try again.');
+        console.error("Profile fetch error:", error.response?.data || error.message);
       } finally {
         setLoading(false);
       }
     };
+    if (token) fetchProfile();
+  }, [token]);
 
-    if (user) fetchProfile();
-  }, [user]);
+  const onChange = (e) => {
+    const { name, value } = e.target;
+    setForm((f) => ({ ...f, [name]: value }));
+  };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+  const onSave = async () => {
     try {
-      // Only send editable fields
-      const updatePayload = {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        phone: formData.phone,
-        pronouns: formData.pronouns,
-        secondaryEmail: formData.secondaryEmail,
-        address: formData.address,
-      };
-      await axiosInstance.put('/api/auth/profile', updatePayload, {
-        headers: { Authorization: `Bearer ${user.token}` },
+      const res = await axiosInstance.put("/api/auth/profile", form, {
+        headers: { Authorization: `Bearer ${token}` }, // ✅ use token
       });
-      alert('Profile updated successfully!');
-    } catch (error) {
-      alert('Failed to update profile. Please try again.');
-    } finally {
-      setLoading(false);
+      setProfile(res.data.user || res.data);
+      setFlash("Profile updated successfully!");
+      setEditing(false);
+    } catch (e) {
+      console.error("Failed to update profile:", e);
+      alert("Failed to update profile. Try again.");
     }
   };
 
-  if (loading) {
-    return <div className="text-center mt-20">Loading...</div>;
-  }
+  if (loading) return <div className="text-center mt-20">Loading…</div>;
+  if (!profile) return <div className="text-center mt-20">No profile found</div>;
 
   return (
-    <div className="max-w-md mx-auto mt-20">
-      <form onSubmit={handleSubmit} className="bg-white p-6 shadow-md rounded">
-        <h1 className="text-2xl font-bold mb-4 text-center">Your Profile</h1>
+    <div className="max-w-3xl mx-auto mt-10 p-6 bg-white shadow rounded">
+      <h1 className="text-2xl font-bold mb-4">My Profile</h1>
 
-        {/* Editable personal fields */}
-        <input
-          type="text"
-          placeholder="First Name"
-          value={formData.firstName}
-          onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-          className="w-full mb-4 p-2 border rounded"
-        />
-        <input
-          type="text"
-          placeholder="Last Name"
-          value={formData.lastName}
-          onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-          className="w-full mb-4 p-2 border rounded"
-        />
-        <input
-          type="email"
-          placeholder="Email"
-          value={formData.email}
-          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-          className="w-full mb-4 p-2 border rounded"
-        />
-        <input
-          type="text"
-          placeholder="Phone"
-          value={formData.phone}
-          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-          className="w-full mb-4 p-2 border rounded"
-        />
-        <input
-          type="text"
-          placeholder="Secondary Email"
-          value={formData.secondaryEmail}
-          onChange={(e) => setFormData({ ...formData, secondaryEmail: e.target.value })}
-          className="w-full mb-4 p-2 border rounded"
-        />
-        <input
-          type="text"
-          placeholder="Address"
-          value={formData.address}
-          onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-          className="w-full mb-4 p-2 border rounded"
-        />
+      {flash && (
+        <div className="mb-4 p-2 rounded bg-green-100 text-green-700">
+          {flash}
+        </div>
+      )}
 
-        {/* Frozen employee-only fields (readonly for employees) */}
-        <input
-          type="text"
-          placeholder="Employee ID"
-          value={formData.employeeId}
-          readOnly
-          className="w-full mb-4 p-2 border rounded bg-gray-100 cursor-not-allowed"
-        />
-        <input
-          type="text"
-          placeholder="Employment Type"
-          value={formData.employmentType}
-          readOnly
-          className="w-full mb-4 p-2 border rounded bg-gray-100 cursor-not-allowed"
-        />
-        <input
-          type="text"
-          placeholder="Job Role"
-          value={formData.jobRole}
-          readOnly
-          className="w-full mb-4 p-2 border rounded bg-gray-100 cursor-not-allowed"
-        />
-        <input
-          type="date"
-          placeholder="Joined Date"
-          value={formData.joinedDate}
-          readOnly
-          className="w-full mb-4 p-2 border rounded bg-gray-100 cursor-not-allowed"
-        />
+      {/* Employment Info */}
+      <div className="mb-6 border p-4 rounded">
+        <h2 className="font-semibold mb-2">Employment Information</h2>
+        <p><strong>Employee ID:</strong> {profile.employeeId || "—"}</p>
+        <p><strong>Job Role:</strong> {profile.jobRole || "—"}</p>
+        <p><strong>Employment Type:</strong> {profile.employmentType || "—"}</p>
+        <p><strong>Joined Date:</strong> {profile.joinedDate ? new Date(profile.joinedDate).toLocaleDateString() : "—"}</p>
+      </div>
 
-        <button type="submit" className="w-full bg-blue-600 text-white p-2 rounded">
-          {loading ? 'Updating...' : 'Update Profile'}
-        </button>
-      </form>
+      {/* Personal Info */}
+      <div className="mb-6 border p-4 rounded">
+        <h2 className="font-semibold mb-2">Personal Information</h2>
+
+        {!editing ? (
+          <>
+            <p><strong>First Name:</strong> {profile.firstName || "—"}</p>
+            <p><strong>Last Name:</strong> {profile.lastName || "—"}</p>
+            <p><strong>Email:</strong> {profile.email}</p>
+            <p><strong>Phone:</strong> {profile.phone || "—"}</p>
+            <p><strong>Pronouns:</strong> {profile.pronouns}</p>
+            <p><strong>Address:</strong> {profile.address || "—"}</p>
+            <button
+              onClick={() => setEditing(true)}
+              className="mt-3 px-4 py-2 bg-blue-600 text-white rounded"
+            >
+              Edit
+            </button>
+          </>
+        ) : (
+          <div className="space-y-3">
+            <label className="block">
+              <span className="text-sm">First Name</span>
+              <input
+                type="text"
+                name="firstName"
+                value={form.firstName || ""}
+                onChange={onChange}
+                className="w-full p-2 border rounded"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-sm">Last Name</span>
+              <input
+                type="text"
+                name="lastName"
+                value={form.lastName || ""}
+                onChange={onChange}
+                className="w-full p-2 border rounded"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-sm">Email (read-only)</span>
+              <input
+                type="email"
+                name="email"
+                value={form.email || ""}
+                disabled
+                className="w-full p-2 border rounded bg-gray-100 cursor-not-allowed"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-sm">Phone</span>
+              <input
+                type="text"
+                name="phone"
+                value={form.phone || ""}
+                onChange={onChange}
+                className="w-full p-2 border rounded"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-sm">Pronouns</span>
+              <select
+                name="pronouns"
+                value={form.pronouns || "prefer not to say"}
+                onChange={onChange}
+                className="w-full p-2 border rounded"
+              >
+                <option value="she/her">She/Her</option>
+                <option value="he/him">He/Him</option>
+                <option value="they/them">They/Them</option>
+                <option value="prefer not to say">Prefer not to say</option>
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="text-sm">Address</span>
+              <input
+                type="text"
+                name="address"
+                value={form.address || ""}
+                onChange={onChange}
+                className="w-full p-2 border rounded"
+              />
+            </label>
+
+            <div className="flex gap-2">
+              <button
+                onClick={onSave}
+                className="px-4 py-2 bg-green-600 text-white rounded"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setEditing(false)}
+                className="px-4 py-2 bg-gray-400 text-white rounded"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

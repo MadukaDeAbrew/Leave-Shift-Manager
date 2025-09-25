@@ -2,25 +2,42 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 
-const generateToken = (id) =>
-  jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+// === Helpers ===
+const generateToken = (user) =>
+  jwt.sign(
+    { id: user._id, systemRole: user.systemRole },
+    process.env.JWT_SECRET,
+    { expiresIn: '30d' }
+  );
 
-// Helpers
 const normalizeEmail = (email = '') => String(email).trim().toLowerCase();
 const trimStr = (v = '') => String(v).trim();
 
-// --- POST /api/auth/register ---
+// === Register ===
 const registerUser = async (req, res) => {
   try {
-    const name = trimStr(req.body.name);
-    const email = normalizeEmail(req.body.email);
-    const password = String(req.body.password || '');
+    const {
+      email,
+      password,
+      systemRole,
+      firstName,
+      lastName,
+      employeeId,
+      jobRole,
+      employmentType,
+      joinedDate,
+      phone,
+      pronouns,
+      secondaryEmail,
+      address,
+      dob,
+    } = req.body;
 
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: 'Name, email and password are required.' });
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required.' });
     }
 
-    // Strong password rule
+    // Strong password check
     const strongPwd =
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?#&])[A-Za-z\d@$!%*?#&]{8,}$/.test(password);
     if (!strongPwd) {
@@ -30,7 +47,7 @@ const registerUser = async (req, res) => {
       });
     }
 
-    const exists = await User.findOne({ email }).lean();
+    const exists = await User.findOne({ email: normalizeEmail(email) }).lean();
     if (exists) {
       return res.status(409).json({ message: 'An account with this email already exists.' });
     }
@@ -38,15 +55,47 @@ const registerUser = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hash = await bcrypt.hash(password, salt);
 
-    const user = await User.create({ name, email, password: hash });
+    const user = await User.create({
+      email: normalizeEmail(email),
+      password: hash,
+      systemRole: systemRole || 'employee',
+
+      // Employee defaults
+      firstName: firstName || 'New',
+      lastName: lastName || 'Employee',
+      employeeId: employeeId || `EMP${Date.now()}`,
+      jobRole: jobRole || 'Unassigned',
+      employmentType: employmentType || 'Full Time',
+      joinedDate: joinedDate || new Date(),
+      salaryPerHour: null,
+
+      // Personal
+      phone: phone || '',
+      pronouns: pronouns || 'prefer not to say',
+      secondaryEmail: secondaryEmail || '',
+      address: address || '',
+      dob: dob || null,
+    });
 
     return res.status(201).json({
       message: 'User registered successfully.',
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      token: generateToken(user.id),
+      user: {
+        id: user.id,
+        email: user.email,
+        systemRole: user.systemRole,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        employeeId: user.employeeId,
+        jobRole: user.jobRole,
+        employmentType: user.employmentType,
+        joinedDate: user.joinedDate,
+        phone: user.phone,
+        pronouns: user.pronouns,
+        secondaryEmail: user.secondaryEmail,
+        address: user.address,
+        dob: user.dob,
+      },
+      token: generateToken(user),
     });
   } catch (e) {
     if (e?.code === 11000 && e?.keyPattern?.email) {
@@ -57,7 +106,7 @@ const registerUser = async (req, res) => {
   }
 };
 
-// --- POST /api/auth/login ---
+// === Login ===
 const loginUser = async (req, res) => {
   try {
     const email = normalizeEmail(req.body.email);
@@ -73,22 +122,24 @@ const loginUser = async (req, res) => {
     const ok = await bcrypt.compare(password, user.password);
     if (!ok) return res.status(400).json({ message: 'Invalid credentials' });
 
-    const token = generateToken(user.id);
+    const token = generateToken(user);
     return res.json({
       token,
       user: {
         id: user.id,
         email: user.email,
-        name: user.name,
-        role: user.role,
+        systemRole: user.systemRole,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        employeeId: user.employeeId,
+        jobRole: user.jobRole,
+        employmentType: user.employmentType,
+        joinedDate: user.joinedDate,
         phone: user.phone,
         pronouns: user.pronouns,
         secondaryEmail: user.secondaryEmail,
         address: user.address,
-        jobRole: user.jobRole,
-        employmentType: user.employmentType,
-        employeeId: user.employeeId,
-        joinedDate: user.joinedDate,
+        dob: user.dob,
       },
     });
   } catch (e) {
@@ -97,19 +148,40 @@ const loginUser = async (req, res) => {
   }
 };
 
-// --- GET /api/auth/profile ---
+// === Get Profile ===
 const getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).lean();
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    return res.json(user);
+    return res.json({
+      user: {
+        id: user._id,
+        email: user.email,
+        systemRole: user.systemRole,
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        employeeId: user.employeeId || '',
+        jobRole: user.jobRole || '',
+        employmentType: user.employmentType || '',
+        joinedDate: user.joinedDate || null,
+        salaryPerHour: user.salaryPerHour || null,
+        phone: user.phone || '',
+        pronouns: user.pronouns || 'prefer not to say',
+        secondaryEmail: user.secondaryEmail || '',
+        address: user.address || '',
+        dob: user.dob || null,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+    });
   } catch (e) {
     console.error('getProfile error:', e);
     return res.status(500).json({ message: 'Server error fetching profile.' });
   }
 };
 
+// === Update Profile ===
 // --- PUT /api/auth/profile ---
 const updateUserProfile = async (req, res) => {
   try {
@@ -117,7 +189,8 @@ const updateUserProfile = async (req, res) => {
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     const {
-      name,
+      firstName,
+      lastName,
       email,
       phone,
       pronouns,
@@ -129,31 +202,42 @@ const updateUserProfile = async (req, res) => {
       employmentType,
     } = req.body;
 
-    // Normal users cannot change employee-only fields
-    if (user.role === 'user') {
-      if (employeeId || joinedDate || jobRole || employmentType) {
-        return res.status(403).json({ message: 'Not authorized to change employee details.' });
-      }
-    } else if (user.role === 'admin') {
-      // Admins can update employee fields
+    // Shared fields
+    if (firstName !== undefined) user.firstName = trimStr(firstName);
+    if (lastName !== undefined) user.lastName = trimStr(lastName);
+    if (email !== undefined) user.email = normalizeEmail(email);
+    if (phone !== undefined) user.phone = trimStr(phone);
+    if (pronouns !== undefined) user.pronouns = pronouns;
+    if (secondaryEmail !== undefined) user.secondaryEmail = normalizeEmail(secondaryEmail);
+    if (address !== undefined) user.address = trimStr(address);
+
+    // Admin-only employee fields
+    if (req.user.systemRole === 'admin') {     // 🔑 FIXED
       if (employeeId !== undefined) user.employeeId = employeeId;
       if (joinedDate !== undefined) user.joinedDate = joinedDate;
       if (jobRole !== undefined) user.jobRole = jobRole;
       if (employmentType !== undefined) user.employmentType = employmentType;
     }
 
-    // Shared fields
-    if (name !== undefined) user.name = trimStr(name) || user.name;
-    if (email !== undefined) user.email = normalizeEmail(email) || user.email;
-    if (phone !== undefined) user.phone = trimStr(phone);
-    if (pronouns !== undefined) user.pronouns = pronouns;
-    if (secondaryEmail !== undefined) user.secondaryEmail = normalizeEmail(secondaryEmail);
-    if (address !== undefined) user.address = trimStr(address);
-
     const updated = await user.save();
     return res.json({
       message: 'Profile updated',
-      user: updated,
+      user: {
+        id: updated._id,
+        email: updated.email,
+        systemRole: updated.systemRole,
+        firstName: updated.firstName,
+        lastName: updated.lastName,
+        employeeId: updated.employeeId,
+        jobRole: updated.jobRole,
+        employmentType: updated.employmentType,
+        joinedDate: updated.joinedDate,
+        phone: updated.phone,
+        pronouns: updated.pronouns,
+        secondaryEmail: updated.secondaryEmail,
+        address: updated.address,
+        dob: updated.dob,
+      },
       token: generateToken(updated.id),
     });
   } catch (e) {
@@ -162,11 +246,11 @@ const updateUserProfile = async (req, res) => {
   }
 };
 
-// --- PUT /api/auth/change-password ---
+
+// === Change Password ===
 const changePassword = async (req, res) => {
   try {
     const { oldPassword, newPassword } = req.body;
-
     if (!oldPassword || !newPassword) {
       return res.status(400).json({ message: 'Old and new password are required.' });
     }
@@ -200,7 +284,7 @@ const changePassword = async (req, res) => {
 module.exports = {
   registerUser,
   loginUser,
-  updateUserProfile,
   getProfile,
+  updateUserProfile,
   changePassword,
 };

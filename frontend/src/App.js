@@ -9,12 +9,15 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import Profile from './pages/Profile';
+import ChangePassword from './pages/ChangePassword';
 
 import LeavesPage from './pages/LeavesPage';
 import ShiftsPage from './pages/ShiftsPage';
 import MySwapRequests from './pages/MySwapRequests';
 import AdminLeaves from './pages/AdminLeaves';
 import AdminSwapRequests from './pages/AdminSwapRequests';
+import EmployeeList from './pages/EmployeeList'; //new admin-only page
 
 function AppShell() {
   const { user, restoreSession } = useAuth();
@@ -36,12 +39,15 @@ function AppShell() {
           <Route path="/leaves" element={<LeavesPage />} />
           <Route path="/shifts" element={<ShiftsPage />} />
           <Route path="/my-swaps" element={<MySwapRequests />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/change-password" element={<ChangePassword />} />
         </Route>
 
         {/* Admin-only */}
         <Route element={<ProtectedRoute requireAdmin />}>
           <Route path="/admin/leaves" element={<AdminLeaves />} />
           <Route path="/admin/swaps" element={<AdminSwapRequests />} />
+          <Route path="/employees" element={<EmployeeList />} /> {/* new */}
         </Route>
 
         {/* Fallback */}
