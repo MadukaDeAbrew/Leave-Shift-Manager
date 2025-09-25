@@ -24,3 +24,14 @@ yarn-debug.log*
 yarn-error.log*
 
 actions-runner/
+
+# ignore dotenv files anywhere
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+**/.env.*.local
+# keep example/template
+!.env.example
+
