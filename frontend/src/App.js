@@ -1,4 +1,4 @@
-// src/App.js
+
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect } from "react";
 import { useAuth, AuthProvider } from "./context/AuthContext";
@@ -16,8 +16,8 @@ import MySwapRequests from "./pages/MySwapRequests";
 import AdminLeaves from "./pages/AdminLeaves";
 import AdminSwapRequests from "./pages/AdminSwapRequests";
 import EmployeesPage from "./pages/EmployeesPage"; 
-import MyProfile from "./pages/MyProfile";          // import
-import ChangePassword from "./pages/ChangePassword";  // ✅ import
+import MyProfile from "./pages/MyProfile";          // A2- new page for MyProfile feature
+import ChangePassword from "./pages/ChangePassword";  // A2- new page for ChangePassword feature
 
 function AppShell() {
   const { user, restoreSession } = useAuth();

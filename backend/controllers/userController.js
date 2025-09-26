@@ -1,7 +1,7 @@
 const User = require("../models/User");
+const { wrapUser } = require("../models/UserType");
 
-// === List (Admin only) ===
-// Returns paginated array of employees → List
+//Used List (Admin only) ===
 exports.getUsers = async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
@@ -10,76 +10,53 @@ exports.getUsers = async (req, res) => {
       .limit(Number(limit));
 
     const total = await User.countDocuments();
-
-    res.json({ users, total }); // List (Array)
+    res.json({ users: users.map(wrapUser), total });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// === Dictionary: Get user by ID (Admin only) ===
+// Used Dictionary ===
 exports.getUserById = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: "User not found" });
-    res.json(user); // Dictionary (key-value pairs)
+    res.json(wrapUser(user));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// === Memento Pattern: Update user (Admin only) ===
+// Used Update (Memento) ===
 exports.updateUser = async (req, res) => {
   try {
     const oldUser = await User.findById(req.params.id);
     if (!oldUser) return res.status(404).json({ message: "User not found" });
 
-    // Save snapshot (Memento)
-    const snapshot = { ...oldUser._doc };
+    const snapshot = wrapUser(oldUser);
 
-    const {
-      firstName,
-      lastName,
-      jobRole,
-      employmentType,
-      joinedDate,
-      salaryPerHour,
-    } = req.body;
+    const updates = req.body;
+    const updated = await User.findByIdAndUpdate(req.params.id, updates, { new: true });
 
-    const updated = await User.findByIdAndUpdate(
-      req.params.id,
-      {
-        firstName,
-        lastName,
-        jobRole: jobRole?.trim(),
-        employmentType,
-        joinedDate,
-        salaryPerHour,
-      },
-      { new: true }
-    );
-
-    res.json({ updated, previous: snapshot });
+    res.json({ updated: wrapUser(updated), previous: snapshot });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// === Set: Unique Job Roles (Admin only) ===
+// Used Set: Unique Job Roles ===
 exports.getUniqueJobRoles = async (req, res) => {
   try {
     const users = await User.find().select("jobRole");
-    const roles = new Set(users.map((u) => u.jobRole?.trim().toLowerCase())); // Set ensures uniqueness
-    const normalizedRoles = [...roles].map(
-      (r) => r.charAt(0).toUpperCase() + r.slice(1)
-    );
-    res.json(normalizedRoles); // Set → Array
+    const roles = new Set(users.map((u) => u.jobRole?.trim().toLowerCase()));
+    const normalized = [...roles].map((r) => r.charAt(0).toUpperCase() + r.slice(1));
+    res.json(normalized);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// === Enum: Employment Types ===
-exports.getEmploymentTypes = (req, res) => {
-  res.json(["Full Time", "Part Time", "Casual"]);
+// Used Enum: Employment Types ===
+exports.getEmploymentTypes = (_req, res) => {
+  res.json(["Full Time", "Part Time", "Casual", "Contract"]);
 };
