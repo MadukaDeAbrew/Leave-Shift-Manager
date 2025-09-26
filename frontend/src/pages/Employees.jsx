@@ -1,4 +1,4 @@
-// frontend/src/pages/Employees.jsx
+// EmployeesPage.jsx- view,add,update and delete employee records
 import { useEffect, useState } from "react";
 import axiosInstance from "../axiosConfig";
 import { useAuth } from "../context/AuthContext";
