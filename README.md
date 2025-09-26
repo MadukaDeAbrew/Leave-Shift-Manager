@@ -3,7 +3,7 @@
 
 **This apps **contain** the following features:**
 
--Authentication & Profile
+-Authentication 
 Signup
 Login
 Logout
@@ -26,7 +26,19 @@ View own swap requests
 Cancel swap request
 Admin approval for swap requests
 
+---New for Assignment 2---
+-Profile Management
+Open my profile (Admin and employee both)
+Edit my profile - personal details
 
+-Employee List (Admin only)
+View employee details including both employees and admins 
+Add new employee 
+Edit employee details
+Delete an employee record
+
+-Authentication - additional features
+Change password
 ---
 
 **Prerequisite:** Please install the following software and create account in following web tools** **
