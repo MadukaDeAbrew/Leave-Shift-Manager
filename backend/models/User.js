@@ -41,10 +41,28 @@ const userSchema = new mongoose.Schema(
     },
     secondaryEmail: { type: String, lowercase: true, trim: true },
     address: { type: String, trim: true },
-    dob: { type: Date }
+
+
+    role: { type: String, enum: ['user', 'admin'], default: 'user' },
+
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+       index: true
+    },
+  
+  roleInWork: {
+    type: String,
+    enum: ['Cashier','Waiter','Receptionist','Others'], 
+    default: 'Others',
+   },
+  dob: { type: Date },
   },
   { timestamps: true }
 );
+
+
 
 // === Virtual: fullName ===
 userSchema.virtual("fullName").get(function () {
@@ -55,3 +73,4 @@ userSchema.set("toJSON", { virtuals: true });
 userSchema.set("toObject", { virtuals: true });
 
 module.exports = mongoose.model("User", userSchema);
+
