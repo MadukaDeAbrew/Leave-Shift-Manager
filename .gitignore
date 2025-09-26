@@ -24,3 +24,11 @@ yarn-debug.log*
 yarn-error.log*
 
 actions-runner/
+.env
+*/.env
+.env.local
+*/.env.local
+
+echo ".env" >> .gitignore
+echo "*/.env" >> .gitignore
+
