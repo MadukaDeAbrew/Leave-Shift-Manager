@@ -15,8 +15,8 @@ import ShiftsPage from "./pages/ShiftsPage";
 import MySwapRequests from "./pages/MySwapRequests";
 import AdminLeaves from "./pages/AdminLeaves";
 import AdminSwapRequests from "./pages/AdminSwapRequests";
-import Employees from "./pages/Employees"; 
-import Profile from "./pages/Profile";          // ✅ import
+import EmployeesPage from "./pages/EmployeesPage"; 
+import MyProfile from "./pages/MyProfile";          // import
 import ChangePassword from "./pages/ChangePassword";  // ✅ import
 
 function AppShell() {
@@ -47,7 +47,7 @@ function AppShell() {
           <Route path="/leaves" element={<LeavesPage />} />
           <Route path="/shifts" element={<ShiftsPage />} />
           <Route path="/my-swaps" element={<MySwapRequests />} />
-          <Route path="/profile" element={<Profile />} />               {/* ✅ added */}
+          <Route path="/profile" element={<MyProfile />} />               {/* ✅ added */}
           <Route path="/change-password" element={<ChangePassword />} /> {/* ✅ added */}
         </Route>
 
@@ -55,7 +55,7 @@ function AppShell() {
         <Route element={<ProtectedRoute requireAdmin={true} />}>
           <Route path="/admin/leaves" element={<AdminLeaves />} />
           <Route path="/admin/swaps" element={<AdminSwapRequests />} />
-          <Route path="/employees" element={<Employees />} />
+          <Route path="/employees" element={<EmployeesPage />} />
         </Route>
 
         {/* Fallback */}
