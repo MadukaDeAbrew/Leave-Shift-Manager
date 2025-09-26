@@ -24,8 +24,22 @@ const userSchema = new mongoose.Schema(
     address: { type: String, trim: true },
 
     role: { type: String, enum: ['user', 'admin'], default: 'user' },
+
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+       index: true
+    },
+  
+  roleInWork: {
+    type: String,
+    enum: ['Cashier','Waiter','Receptionist','Others'], 
+    default: 'Others',
+   },
   },
   { timestamps: true }
 );
+
 
 module.exports = mongoose.model('User', userSchema);
