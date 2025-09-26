@@ -1,16 +1,17 @@
-// EmployeesPage.jsx- view,add,update and delete employee records
+// A2 - EmployeesPage.jsx
 import { useEffect, useState } from "react";
 import axiosInstance from "../axiosConfig";
 import { useAuth } from "../context/AuthContext";
 
-export default function Employees() {
+export default function EmployeesPage() {
   const { token } = useAuth();
+
+  // Encapsulation: state is private to this component 
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showModal, setShowModal] = useState(false);
-  const [editing, setEditing] = useState(null); // employee being edited or null
-
+  const [editing, setEditing] = useState(null); // holds the employee being edited
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -20,50 +21,7 @@ export default function Employees() {
     joinedDate: "",
   });
 
-  const [errors, setErrors] = useState({});
-
-  // 🔹 Validation
-  const validate = () => {
-    const newErrors = {};
-    if (!form.firstName.trim()) newErrors.firstName = "First name is required";
-    if (!form.lastName.trim()) newErrors.lastName = "Last name is required";
-    if (!form.email.trim()) newErrors.email = "Email is required";
-    else if (!/^\S+@\S+\.\S+$/.test(form.email))
-      newErrors.email = "Invalid email format";
-    if (!form.employmentType.trim())
-      newErrors.employmentType = "Employment type is required";
-    return newErrors;
-  };
-
-  // 🔹 Save handler
-  const onSave = async () => {
-    const validationErrors = validate();
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      return;
-    }
-
-    try {
-      if (editing) {
-        // Update existing
-        await axiosInstance.put(`/api/employees/${editing._id}`, form, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      } else {
-        // Create new
-        await axiosInstance.post("/api/employees", form, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      }
-      setShowModal(false);
-      fetchEmployees();
-    } catch (e) {
-      console.error("Save employee error:", e.response?.data || e.message);
-      alert(e.response?.data?.message || "Failed to save employee");
-    }
-  };
-
-  // 🔹 Fetch employees
+  // Observer Design Pattern (Behavioural): React automatically re-renders when state changes 
   const fetchEmployees = async () => {
     try {
       const res = await axiosInstance.get("/api/employees", {
@@ -82,7 +40,7 @@ export default function Employees() {
     if (token) fetchEmployees();
   }, [token]);
 
-  // 🔹 Open modal
+  // Factory Pattern (Creational): creates a new employee object with defaults 
   const openCreate = () => {
     setEditing(null);
     setForm({
@@ -90,21 +48,40 @@ export default function Employees() {
       lastName: "",
       email: "",
       jobRole: "",
-      employmentType: "",
+      employmentType: "Full Time",
       joinedDate: "",
     });
-    setErrors({});
     setShowModal(true);
+  };
+
+  // Template Method Pattern (Behavioural): common save flow (decide PUT or POST) 
+  const onSave = async () => {
+    try {
+      if (editing) {
+        // Update existing
+        await axiosInstance.put(`/api/employees/${editing._id}`, form, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } else {
+        // Create new
+        await axiosInstance.post("/api/employees", form, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+      setShowModal(false);
+      fetchEmployees();
+    } catch (e) {
+      console.error("Save employee error:", e.response?.data || e.message);
+      alert("Failed to save employee");
+    }
   };
 
   const openEdit = (emp) => {
     setEditing(emp);
-    setForm(emp);
-    setErrors({});
+    setForm(emp); // Memento Pattern (Behavioural): clone current state of employee
     setShowModal(true);
   };
 
-  // 🔹 Delete
   const onDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this employee?")) return;
     try {
@@ -123,7 +100,6 @@ export default function Employees() {
     setForm((f) => ({ ...f, [name]: value }));
   };
 
-  // === UI ===
   if (loading) return <div className="p-4">Loading employees…</div>;
   if (error) return <div className="p-4 text-red-600">{error}</div>;
 
@@ -181,7 +157,7 @@ export default function Employees() {
         </table>
       )}
 
-      {/* === Modal === */}
+      {/* Modal for encapsulates editing/creating employee */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
           <div className="bg-white rounded p-6 w-96">
@@ -189,7 +165,6 @@ export default function Employees() {
               {editing ? "Edit Employee" : "Add Employee"}
             </h2>
 
-            {/* First Name */}
             <label className="block mb-2">
               <span className="text-sm">First Name</span>
               <input
@@ -197,16 +172,10 @@ export default function Employees() {
                 name="firstName"
                 value={form.firstName || ""}
                 onChange={onChange}
-                className={`w-full p-2 border rounded ${
-                  errors.firstName ? "border-red-500" : ""
-                }`}
+                className="w-full p-2 border rounded"
               />
-              {errors.firstName && (
-                <p className="text-red-500 text-sm">{errors.firstName}</p>
-              )}
             </label>
 
-            {/* Last Name */}
             <label className="block mb-2">
               <span className="text-sm">Last Name</span>
               <input
@@ -214,16 +183,10 @@ export default function Employees() {
                 name="lastName"
                 value={form.lastName || ""}
                 onChange={onChange}
-                className={`w-full p-2 border rounded ${
-                  errors.lastName ? "border-red-500" : ""
-                }`}
+                className="w-full p-2 border rounded"
               />
-              {errors.lastName && (
-                <p className="text-red-500 text-sm">{errors.lastName}</p>
-              )}
             </label>
 
-            {/* Email */}
             <label className="block mb-2">
               <span className="text-sm">Email</span>
               <input
@@ -231,17 +194,11 @@ export default function Employees() {
                 name="email"
                 value={form.email || ""}
                 onChange={onChange}
-                disabled={!!editing} // Email not editable in edit mode
-                className={`w-full p-2 border rounded ${
-                  errors.email ? "border-red-500" : ""
-                } ${editing ? "bg-gray-100 cursor-not-allowed" : ""}`}
+                disabled={!!editing} // Abstraction: cannot edit email
+                className="w-full p-2 border rounded bg-gray-100"
               />
-              {errors.email && (
-                <p className="text-red-500 text-sm">{errors.email}</p>
-              )}
             </label>
 
-            {/* Job Role */}
             <label className="block mb-2">
               <span className="text-sm">Job Role</span>
               <input
@@ -253,26 +210,19 @@ export default function Employees() {
               />
             </label>
 
-            {/* Employment Type */}
             <label className="block mb-2">
               <span className="text-sm">Employment Type</span>
               <select
                 name="employmentType"
-                value={form.employmentType || ""}
+                value={form.employmentType || "Full Time"}
                 onChange={onChange}
-                className={`w-full p-2 border rounded ${
-                  errors.employmentType ? "border-red-500" : ""
-                }`}
+                className="w-full p-2 border rounded"
               >
-                <option value="">-- Select --</option>
                 <option>Full Time</option>
                 <option>Part Time</option>
                 <option>Casual</option>
                 <option>Contract</option>
               </select>
-              {errors.employmentType && (
-                <p className="text-red-500 text-sm">{errors.employmentType}</p>
-              )}
             </label>
 
             <div className="flex gap-2 mt-4">

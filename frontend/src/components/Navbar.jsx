@@ -1,4 +1,4 @@
-// frontend/src/components/Navbar.jsx
+// Updatded Navbar.jsx - Maduka
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
@@ -20,7 +20,7 @@ export default function Navbar() {
 
         {user ? (
           <div className="flex items-center gap-4">
-            {/* Always visible to all users */}
+            {/* Always visible to all */}
             <NavLink to="/" className={({ isActive }) => (isActive ? "underline" : "")}>
               Home
             </NavLink>
@@ -34,7 +34,7 @@ export default function Navbar() {
               My Swaps
             </NavLink>
 
-            {/* Admin-only links */}
+            {/* Admin-only */}
             {isAdmin && (
               <>
                 <NavLink to="/admin/leaves" className={({ isActive }) => (isActive ? "underline" : "")}>
@@ -49,15 +49,15 @@ export default function Navbar() {
               </>
             )}
 
-            {/* Profile & security (visible to all logged-in users) */}
+            {/* Profile + security */}
             <NavLink to="/profile" className={({ isActive }) => (isActive ? "underline" : "")}>
-              Profile
+              My Profile
             </NavLink>
             <NavLink to="/change-password" className={({ isActive }) => (isActive ? "underline" : "")}>
               Change Password
             </NavLink>
 
-            {/* User name + logout */}
+            {/* User name to display- if user name is not give then email */}
             <span className="text-sm opacity-80">
               {user.firstName ? `${user.firstName} ${user.lastName}` : user.email}
             </span>

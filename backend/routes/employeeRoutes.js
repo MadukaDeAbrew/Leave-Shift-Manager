@@ -1,3 +1,4 @@
+// this include employees + admin users
 const express = require("express");
 const bcrypt = require("bcrypt");
 const { protect, adminOnly } = require("../middleware/authMiddleware");
@@ -6,6 +7,7 @@ const Employee = require("../models/User"); // reuse User model
 const router = express.Router();
 
 // === GET all employees ===
+/*
 router.get("/", protect, adminOnly, async (req, res) => {
   try {
     const employees = await Employee.find({ systemRole: "employee" }).select("-password").lean();
@@ -13,6 +15,18 @@ router.get("/", protect, adminOnly, async (req, res) => {
   } catch (e) {
     console.error("Fetch employees error:", e);
     res.status(500).json({ message: "Server error fetching employees" });
+  }
+});
+*/
+
+// === GET all users ===
+router.get("/", protect, adminOnly, async (req, res) => {
+  try {
+    const users = await Employee.find().select("-password").lean(); // no filter
+    res.json(users);
+  } catch (e) {
+    console.error("Fetch users error:", e);
+    res.status(500).json({ message: "Server error fetching users" });
   }
 });
 

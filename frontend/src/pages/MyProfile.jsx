@@ -1,23 +1,24 @@
+// A2- MyProfile.jsx
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import axiosInstance from "../axiosConfig";
 
-const Profile = () => {
-  const { token } = useAuth();   // ✅ use token directly
+export default function MyProfile() {
+  const { user, token } = useAuth();
+
+  // Encapsulation: keep profile state private to this component 
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({});
-  const [flash, setFlash] = useState("");
 
+  //  Abstraction: fetching profile is separated into its own function 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
         const response = await axiosInstance.get("/api/auth/profile", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        console.log("PROFILE API RESPONSE:", response.data);
-
         const profileData = response.data.user || response.data;
         setProfile(profileData);
         setForm(profileData);
@@ -35,13 +36,13 @@ const Profile = () => {
     setForm((f) => ({ ...f, [name]: value }));
   };
 
+  // Template Method Pattern (Behavioural): common flow for saving profile
   const onSave = async () => {
     try {
       const res = await axiosInstance.put("/api/auth/profile", form, {
-        headers: { Authorization: `Bearer ${token}` }, // ✅ use token
+        headers: { Authorization: `Bearer ${token}` },
       });
       setProfile(res.data.user || res.data);
-      setFlash("Profile updated successfully!");
       setEditing(false);
     } catch (e) {
       console.error("Failed to update profile:", e);
@@ -56,27 +57,22 @@ const Profile = () => {
     <div className="max-w-3xl mx-auto mt-10 p-6 bg-white shadow rounded">
       <h1 className="text-2xl font-bold mb-4">My Profile</h1>
 
-      {flash && (
-        <div className="mb-4 p-2 rounded bg-green-100 text-green-700">
-          {flash}
-        </div>
-      )}
-
-      {/* Employment Info */}
       <div className="mb-6 border p-4 rounded">
         <h2 className="font-semibold mb-2">Employment Information</h2>
         <p><strong>Employee ID:</strong> {profile.employeeId || "—"}</p>
         <p><strong>Job Role:</strong> {profile.jobRole || "—"}</p>
         <p><strong>Employment Type:</strong> {profile.employmentType || "—"}</p>
-        <p><strong>Joined Date:</strong> {profile.joinedDate ? new Date(profile.joinedDate).toLocaleDateString() : "—"}</p>
+        <p><strong>Joined Date:</strong> 
+          {profile.joinedDate ? new Date(profile.joinedDate).toLocaleDateString() : "—"}
+        </p>
       </div>
 
-      {/* Personal Info */}
       <div className="mb-6 border p-4 rounded">
         <h2 className="font-semibold mb-2">Personal Information</h2>
 
         {!editing ? (
           <>
+            {/*Polymorphism: same data fields behave differently in view vs edit mode  */}
             <p><strong>First Name:</strong> {profile.firstName || "—"}</p>
             <p><strong>Last Name:</strong> {profile.lastName || "—"}</p>
             <p><strong>Email:</strong> {profile.email}</p>
@@ -92,6 +88,7 @@ const Profile = () => {
           </>
         ) : (
           <div className="space-y-3">
+            {/* Memento Pattern (Behavioural): edits stored in 'form', cancel restores original */}
             <label className="block">
               <span className="text-sm">First Name</span>
               <input
@@ -181,6 +178,4 @@ const Profile = () => {
       </div>
     </div>
   );
-};
-
-export default Profile;
+}

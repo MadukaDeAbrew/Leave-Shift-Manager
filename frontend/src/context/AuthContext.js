@@ -9,47 +9,29 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Restore session from localStorage on first mount
+  // Restoring session from localStorage on first mount
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("auth") || "null");
       if (saved?.token) {
         setToken(saved.token);
-
-        // Normalize role field to systemRole
-        const normalizedUser = saved.user
-          ? {
-              ...saved.user,
-              systemRole: saved.user.systemRole || saved.user.role || "employee",
-            }
-          : null;
-
-        setUser(normalizedUser);
+        setUser(saved.user || null);
         axiosInstance.defaults.headers.common["Authorization"] = `Bearer ${saved.token}`;
       }
     } catch {
-      // ignore malformed storage
+      // ignore
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Login: save token+user, set default header, persist
   const login = (jwt, userObj) => {
-    const normalizedUser = userObj
-      ? {
-          ...userObj,
-          systemRole: userObj.systemRole || userObj.role || "employee",
-        }
-      : null;
-
     setToken(jwt);
-    setUser(normalizedUser);
+    setUser(userObj || null);
     axiosInstance.defaults.headers.common["Authorization"] = `Bearer ${jwt}`;
-    localStorage.setItem("auth", JSON.stringify({ token: jwt, user: normalizedUser }));
+    localStorage.setItem("auth", JSON.stringify({ token: jwt, user: userObj || null }));
   };
 
-  // Logout: clear everything
   const logout = () => {
     setToken(null);
     setUser(null);
@@ -57,8 +39,8 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("auth");
   };
 
-  // 🔑 Correct check
-  const isAdmin = !!user && user.systemRole === "admin";
+  // checking role using user.type (from wrapUser)
+  const isAdmin = !!user && user.type === "Admin";
 
   const value = useMemo(
     () => ({ token, user, isAdmin, loading, login, logout }),
