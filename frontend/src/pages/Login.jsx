@@ -50,7 +50,7 @@ export default function Login() {
 
     try {
       setSubmitting(true);
-       const res = await axiosInstance.post('/api/auth/login', {
+      const res = await axiosInstance.post('/api/auth/login', {
         email: form.email.trim().toLowerCase(),
         password: form.password,
       });
@@ -60,8 +60,12 @@ export default function Login() {
       // 2.4: store token & user, set header, persist (handled by AuthContext)
       login(token, user);
 
-      // 2.5: redirect
-      navigate('/shifts', { replace: true });
+      // 2.5: redirect based on systemRole
+      if (user.systemRole === 'admin') {
+        navigate('/employees', { replace: true }); // admin dashboard
+      } else {
+        navigate('/profile', { replace: true });   // employee profile
+      }
     } catch (err) {
       const status = err?.response?.status;
       const msg = err?.response?.data?.message;

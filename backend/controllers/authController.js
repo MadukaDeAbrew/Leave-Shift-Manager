@@ -1,177 +1,131 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
+const { wrapUser } = require('../models/UserType');
 
-const generateToken = (id) =>
-  jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+// added reusable functions 
+const generateToken = (user) =>
+  jwt.sign(
+    { id: user._id, systemRole: user.systemRole },
+    process.env.JWT_SECRET,
+    { expiresIn: '30d' }
+  );
 
-// Shared helpers
 const normalizeEmail = (email = '') => String(email).trim().toLowerCase();
 const trimStr = (v = '') => String(v).trim();
 
-// --- POST /api/auth/register ---
+// Register 
 const registerUser = async (req, res) => {
   try {
-    const name = trimStr(req.body.name);
-    const email = normalizeEmail(req.body.email);
-    const password = String(req.body.password || '');
-
-    // added basic validation to keep server-side checks 
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: 'Name, email and password are required.' });
-    }
-
-    // Password strength: min 8, upper, lower, number, special charater
-    const strongPwd =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?#&])[A-Za-z\d@$!%*?#&]{8,}$/.test(password);
-    if (!strongPwd) {
-      return res.status(400).json({
-        message:
-          'Password must be at least 8 characters and include upper, lower, number, and special character.',
-      });
-    }
-
-    // Unique email check
-    const exists = await User.findOne({ email }).lean();
-    if (exists) {
-      return res.status(409).json({ message: 'An account with this email already exists.' });
-    }
-
-    // 1.4 Hash password 
-    const salt = await bcrypt.genSalt(10);
-    const hash = await bcrypt.hash(password, salt);
-
-    // Create user
-    const user = await User.create({ name, email, password: hash });
-
-    // set no auto-login for signup
-    return res.status(201).json({
-      message: 'User registered successfully.',
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role, //2.5 role saved
-      token: generateToken(user.id),
-    });
-  } catch (e) {
-    // Handle duplicate-key race (Mongo code 11000)
-    if (e?.code === 11000 && e?.keyPattern?.email) {
-      return res.status(409).json({ message: 'An account with this email already exists.' });
-    }
-    console.error('registerUser error:', e);
-    return res.status(500).json({ message: 'Server error during registration.' });
-  }
-};
-
-// 2.3 /api/auth/login ---
-const loginUser = async (req, res) => {
-  try {
-    const email = normalizeEmail(req.body.email);
-    const password = String(req.body.password || '');
+    const { email, password, systemRole, firstName, lastName } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ message: 'Email and password are required.' });
     }
 
-    // select('+password') because password has select:false in schema
+    const exists = await User.findOne({ email: normalizeEmail(email) }).lean();
+    if (exists) {
+      return res.status(409).json({ message: 'An account with this email already exists.' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hash = await bcrypt.hash(password, salt);
+
+    const user = await User.create({
+      email: normalizeEmail(email),
+      password: hash,
+      systemRole: systemRole || 'employee',
+      firstName: firstName || 'New',
+      lastName: lastName || 'Employee',
+      employeeId: `EMP${Date.now()}`,
+    });
+
+    return res.status(201).json({
+      message: 'User registered successfully.',
+      user: wrapUser(user),
+      token: generateToken(user),
+    });
+  } catch (e) {
+    console.error('registerUser error:', e);
+    return res.status(500).json({ message: 'Server error during registration.' });
+  }
+};
+
+// Login 
+const loginUser = async (req, res) => {
+  try {
+    const email = normalizeEmail(req.body.email);
+    const password = String(req.body.password || '');
+
     const user = await User.findOne({ email }).select('+password');
     if (!user) return res.status(400).json({ message: 'Invalid credentials' });
 
     const ok = await bcrypt.compare(password, user.password);
     if (!ok) return res.status(400).json({ message: 'Invalid credentials' });
 
-    const token = generateToken(user.id);
-    return res.json({
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        phone: user.phone,
-        pronouns: user.pronouns,
-        secondaryEmail: user.secondaryEmail,
-        address: user.address,
-      },
-    });
+    const token = generateToken(user);
+    return res.json({ token, user: wrapUser(user) });
   } catch (e) {
     console.error('loginUser error:', e);
     return res.status(500).json({ message: 'Server error during login.' });
   }
 };
 
-// --- GET /api/auth/profile (protected) ---
+// Get Profile 
 const getProfile = async (req, res) => {
   try {
-    // req.user.id is set by auth middleware after verifying JWT
     const user = await User.findById(req.user.id).lean();
     if (!user) return res.status(404).json({ message: 'User not found' });
-
-    
-    return res.json({
-      name: user.name,
-      email: user.email,
-      phone: user.phone,
-      pronouns: user.pronouns,
-      secondaryEmail: user.secondaryEmail,
-      address: user.address,
-      role: user.role,
-    });
+    return res.json({ user: wrapUser(user) });
   } catch (e) {
     console.error('getProfile error:', e);
     return res.status(500).json({ message: 'Server error fetching profile.' });
   }
 };
 
-// --- PUT /api/auth/profile (protected) ---
+// Update Profile
 const updateUserProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // Only update provided fields
-    const {
-      name,
-      email,
-      phone,
-      pronouns,
-      secondaryEmail,
-      address,
-    } = req.body;
-
-    if (name !== undefined) user.name = trimStr(name) || user.name;
-    if (email !== undefined) user.email = normalizeEmail(email) || user.email;
+    const { firstName, lastName, phone, address } = req.body;
+    if (firstName !== undefined) user.firstName = trimStr(firstName);
+    if (lastName !== undefined) user.lastName = trimStr(lastName);
     if (phone !== undefined) user.phone = trimStr(phone);
-    if (pronouns !== undefined) user.pronouns = pronouns;
-    if (secondaryEmail !== undefined) user.secondaryEmail = normalizeEmail(secondaryEmail);
     if (address !== undefined) user.address = trimStr(address);
 
-    try {
-      const updated = await user.save();
-      // To issue a fresh token (optional; keeps client “logged in” with current profile)
-      return res.json({
-        id: updated.id,
-        name: updated.name,
-        email: updated.email,
-        phone: updated.phone,
-        pronouns: updated.pronouns,
-        secondaryEmail: updated.secondaryEmail,
-        address: updated.address,
-        role: updated.role,
-        token: generateToken(updated.id),
-      });
-    } catch (saveErr) {
-      // Handle email uniqueness collision
-      if (saveErr?.code === 11000 && saveErr?.keyPattern?.email) {
-        return res.status(409).json({ message: 'An account with this email already exists.' });
-      }
-      throw saveErr;
-    }
+    const updated = await user.save();
+    return res.json({
+      message: 'Profile updated',
+      user: wrapUser(updated),
+      token: generateToken(updated),
+    });
   } catch (e) {
     console.error('updateUserProfile error:', e);
     return res.status(500).json({ message: 'Server error updating profile.' });
   }
 };
 
+// Change Password 
+const changePassword = async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    const user = await User.findById(req.user.id).select('+password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
 
-module.exports = { registerUser, loginUser, updateUserProfile, getProfile };
+    const ok = await bcrypt.compare(oldPassword, user.password);
+    if (!ok) return res.status(400).json({ message: 'Old password is incorrect.' });
+
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+
+    await user.save();
+    return res.json({ message: 'Password updated successfully.' });
+  } catch (e) {
+    console.error('changePassword error:', e);
+    return res.status(500).json({ message: 'Server error changing password.' });
+  }
+};
+
+module.exports = { registerUser, loginUser, getProfile, updateUserProfile, changePassword };

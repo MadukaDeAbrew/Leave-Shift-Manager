@@ -1,6 +1,6 @@
-
-import { Navigate, Outlet } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+// updated ProtectedRoute.jsx
+import { Navigate, Outlet } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 export default function ProtectedRoute({ requireAdmin = false }) {
   const { user, loading } = useAuth();
@@ -8,8 +8,9 @@ export default function ProtectedRoute({ requireAdmin = false }) {
   if (loading) return <div className="p-4">Loading…</div>;
   if (!user) return <Navigate to="/login" replace />;
 
-  if (requireAdmin && user.role !== 'admin') {
+  if (requireAdmin && user.type !== "Admin") {
     return <Navigate to="/" replace />;
   }
+
   return <Outlet />;
 }
