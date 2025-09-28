@@ -8,7 +8,8 @@ const ShiftSchema = new mongoose.Schema(
     // OPTIONAL assignee (null means "unassigned")
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
 
-    shiftDate: { type: Date, required: true },            // day of the shift (00:00 time)
+    shiftDate: { type: String, required: true },
+    weekDay: {type: String},            // day of the shift ,raise weekday automatically
     startTime: { type: String, required: true },          // "HH:MM" 24h
     endTime:   { type: String, required: true },          // "HH:MM" 24h
     role:      { type: String, default: '' },
@@ -23,8 +24,8 @@ const ShiftSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ['Scheduled', 'Completed', 'Cancelled'],
-      default: 'Scheduled',
+      enum: ['unassigned', 'assigned'],
+      default: 'unassigned'
     },
    // createdBy: {type:Types.ObecttId,ref: 'User'},
  },
@@ -63,4 +64,4 @@ const preferenceSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model('Shift', ShiftSchema);
+module.exports = mongoose.model('Preference', preferenceSchema);
