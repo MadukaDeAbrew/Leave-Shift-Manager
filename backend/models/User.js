@@ -46,12 +46,12 @@ const userSchema = new mongoose.Schema(
 
     role: { type: String, enum: ['user', 'admin'], default: 'user' },
 
-    userId: {
+    /*userId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: true,
        index: true
-    },
+    },*/
   
   roleInWork: {
     type: String,

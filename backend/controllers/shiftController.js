@@ -1,4 +1,4 @@
-const ShiftService = require('../services/ShiftService');
+const ShiftService = require('../shiftserver');
 
 
 //get shift table and all user can access, all or self depend on scope.

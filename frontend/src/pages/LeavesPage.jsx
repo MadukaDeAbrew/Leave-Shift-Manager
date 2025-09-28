@@ -59,6 +59,23 @@ export default function LeavesPage() {
     }
   }, [ok, err]);
 
+  //control the request windows
+  const [showPopup, setShowPopup] = useState(false);
+
+  const Popup = ({children, onClose}) =>(
+    <div className='flex fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50'>
+      <div className='bg-white p-6 rounded shadow-lg relative w-full max-w-md'>
+        <button  
+          onClick = {onClose}
+          className='absolute top-2 right-2 text-grey-500 hover:text-gray-700'
+            >
+           x
+        </button>
+        {children}
+      </div>
+    </div>
+  );
+
   // Create new leave
   const handleCreate = async (form) => {
     setErr(''); setOk('');
@@ -180,14 +197,30 @@ export default function LeavesPage() {
           {ok || err}
         </div>
       )}
-
-      {/* Create Form (shown when not editing) */}
-      {!editTarget && (
-        <LeaveForm key={formKey} onSubmit={handleCreate} disabled={submitting} />
+      <button
+        onClick = {()=> setShowPopup(true)}
+        className='px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700'
+      >
+        New Leave Request
+      </button>
+      {showPopup && (
+        <Popup onClose={()=>setShowPopup(false)}>
+           <LeaveForm
+            initial={{
+              startDate: '',
+              endDate: '',
+              leaveType:'',
+              reason:'s',
+            }}
+            onSubmit={handleCreate} 
+            disabled={submitting}
+          />
+        </Popup>
       )}
 
       {/* Inline Edit (reuses LeaveForm with initial values) */}
       {editTarget && (
+        <Popup onClose={()=>setEditTarget(false)}>
         <div className="mb-6">
           <div className="mb-2 font-semibold text-[#1e3a8a]">
             Editing request from {new Date(editTarget.startDate).toLocaleDateString()}
@@ -205,6 +238,7 @@ export default function LeavesPage() {
             disabled={submitting}
           />
         </div>
+        </Popup>
       )}
 
       {/* List */}
