@@ -23,7 +23,7 @@ const ShiftSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ['unassigned', 'partially_assigned', 'fully_assigned'],
+      enum: ['unassigned', 'assigned'],
       default: 'unassigned'
     },
    // createdBy: {type:Types.ObecttId,ref: 'User'},

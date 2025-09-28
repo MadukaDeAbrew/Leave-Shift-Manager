@@ -8,17 +8,11 @@ exports.SLOTS = [
     { key: 's18_20', start: '18:00', end: '20:00', label: '6:00pm-8:00pm' },
 ];
 
-//vaild shift the time ture ture or false
-exports.isValidSlot = (start, end) => {
-    for (const s of exports.SLOTS){
-        if (s.start === start && s.end === end){
-            return true;
-        }
-    }
-    return false;
- };
+//vaild shift the time ture  or false
+exports.byKey = new Map(exports.SLOTS.map(s => [s.key, s]));
 
-//exchange dare to weekday
+
+//exchange date to weekday
 exports.weekdayKey = (yyy_mm_dd) =>
     //thinking change *
   ['sun','mon','tue','wed','thu','fri','sat'][new Date(yyyy_mm_dd + 'T00:00:00').getDay()];
