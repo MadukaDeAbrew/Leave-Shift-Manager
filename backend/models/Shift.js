@@ -1,10 +1,7 @@
 // backend/models/Shift.js
 const mongoose = require('mongoose');
-<<<<<<< Updated upstream
-=======
 //const Schema = mongoose.Schema;
 //const {Schema, Type} = mongoose;       //destructure S,Y from mogo
->>>>>>> Stashed changes
 
 const ShiftSchema = new mongoose.Schema(
   {
@@ -16,8 +13,6 @@ const ShiftSchema = new mongoose.Schema(
     endTime:   { type: String, required: true },          // "HH:MM" 24h
     role:      { type: String, default: '' },
 
-<<<<<<< Updated upstream
-=======
     assignedTo: [mongoose.Schema.Types.ObjectId],
 
   //  status: {
@@ -26,14 +21,11 @@ const ShiftSchema = new mongoose.Schema(
   //    default: 'Scheduled',
   //  },
 
->>>>>>> Stashed changes
     status: {
       type: String,
       enum: ['Scheduled', 'Completed', 'Cancelled'],
       default: 'Scheduled',
     },
-<<<<<<< Updated upstream
-=======
    // createdBy: {type:Types.ObecttId,ref: 'User'},
  },
   { timestamps: true },
@@ -67,7 +59,6 @@ const preferenceSchema = new mongoose.Schema(
     },
      validFrom: Date,
      validTo:   Date,  
->>>>>>> Stashed changes
   },
   { timestamps: true }
 );
