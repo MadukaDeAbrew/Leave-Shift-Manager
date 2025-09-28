@@ -4,27 +4,57 @@ const { isValidSlot } = require('../constants/slots');
 //ShfitService
 
 class ShiftService {
-  async list({from, to, scope, roleInwork, userId}){}
-  async listUnassigned({from, to}){}
-  async assign(shiftId, userIds){return ture}
+  async list({from, to, scope, viewerId, userId,status}){
+    const q = {};
+    if (from && to)q.date = {$gte:from, $lte:to}; //>= and <= date
+    if (status) q.status = status;
+
+    if (scope === 'me'){
+        q.assignedTo = viewerId;
+    }
+     else if (roleInWork) {                       // manager filter by roles
+        q.roleInWork = roleInWork;       
+  }
+    return Shift.find(q).sort({ date: 1, startTime: 1 }); 
+}  
+
+//unassigned
+async listUnassigned({ from, to }) {
+    const q = { status: 'unassigned' }; 
+    if (from && to) q.date = { $gte: from, $lte: to }; 
+    return Shift.find(q).sort({ date: 1, startTime: 1 });
 }
 
-module.exports = app
-
-//ShiftService decorators
-//manager
-exports.withUassignFlag = (shifts) =>
-  shifts.map(shift =>({
-  ...shift.toObject?.() ?? shift, //...express methods in mongo. s.toObject?.() → undefined
-  meta: { ...(shift.meta || {}), unassigned: shift.status === 'unassigned' },
-}));
-
-//User
-exports.withPreferenceMatch = (shifts, preference) =>
-  shifts.map(s => {
-    const weekday = new Date(s.date+'T00:00:00').toLocaleDateString('en-US',{weekday:'short'}).slice(0,3).toLowerCase();
-    const slot = toSlot(s.startTime, s.endTime); // morning/afternoon/evening/night
-    const hit = !!pref?.weekdays?.[weekday]?.[slot];
-    return { ...s.toObject?.() ?? s, meta: { ...(s.meta||{}), matchesPreference: hit } };
+//manager create new shifts
+async create({ date, slotKey,roleInWork, createdBy }) {
+  const slot = slots.byKey.get(slotKey);
+  if (!slot) throw new Error('no time valids');      
+  const { start, end } = slot;                  
+  return Shift.create({
+    date, startTime: start, endTime: end, slotKey,
+    roleInWork, createdBy, assignedTo: [], status: 'unassigned'
   });
+}
+}
+//remove shifts
+await Shift.findByIdAndDelete(id);
+return { ok: true }; 
+
+//all user incliuding manager and empolyee can update status
+const s = await Shift.findById(id);
+if (!s) throw new Error('Shift not found');
+
+s.assignedTo = userIds;
+
+s.status = userIds.length === 0 
+    ? 'unassigned'
+    : 'assigned'; 
+
+await s.save();
+return s;
+
+module.exports = new ShiftService();
+
+
+
 
