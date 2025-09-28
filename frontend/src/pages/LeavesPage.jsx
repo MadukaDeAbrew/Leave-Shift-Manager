@@ -291,7 +291,7 @@ export default function LeavesPage() {
                 <span key={n} className="flex items-center">
                   {dots && <span className="mx-1 text-gray-400">…</span>}
                   <PageBadge n={n} />
-                </span>
+                </span>                                                                                             
               );
             })}
         </div>

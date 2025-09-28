@@ -1,5 +1,11 @@
+<<<<<<< Updated upstream
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
+=======
+const mongoose = require("mongoose");
+//const Schema = mongoose.Schema;
+const bcrypt = require("bcrypt");
+>>>>>>> Stashed changes
 
 const userSchema = new mongoose.Schema(
   {
@@ -24,6 +30,23 @@ const userSchema = new mongoose.Schema(
     address: { type: String, trim: true },
 
     role: { type: String, enum: ['user', 'admin'], default: 'user' },
+<<<<<<< Updated upstream
+=======
+
+    userId: {
+      type: new mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+       index: true
+    },
+  
+  roleInWork: {
+    type: String,
+    enum: ['Cashier','Waiter','Receptionist','Others'], 
+    default: 'Others',
+   },
+  dob: { type: Date },
+>>>>>>> Stashed changes
   },
   { timestamps: true }
 );
