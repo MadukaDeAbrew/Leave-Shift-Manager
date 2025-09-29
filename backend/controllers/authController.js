@@ -74,7 +74,7 @@ const loginUser = async (req, res) => {
 // Get Profile 
 const getProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).lean();
+    const user = await User.findById(req.user._id).lean();
     if (!user) return res.status(404).json({ message: 'User not found' });
     return res.json({ user: wrapUser(user) });
   } catch (e) {
@@ -86,7 +86,7 @@ const getProfile = async (req, res) => {
 // Update Profile
 const updateUserProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     const { firstName, lastName, phone, address } = req.body;
@@ -111,7 +111,7 @@ const updateUserProfile = async (req, res) => {
 const changePassword = async (req, res) => {
   try {
     const { oldPassword, newPassword } = req.body;
-    const user = await User.findById(req.user.id).select('+password');
+    const user = await User.findById(req.user._id).select('+password');
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     const ok = await bcrypt.compare(oldPassword, user.password);

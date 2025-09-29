@@ -1,5 +1,5 @@
-const Shift = require('../models/Shift');                 
-const { isValidSlot } = require('../constants/slots'); 
+const Shift = require('./models/Shift');                 
+const { isValidSlot } = require('./config/slot'); 
 
 //ShfitService
 
@@ -35,23 +35,29 @@ async create({ date, slotKey,roleInWork, createdBy }) {
     roleInWork, createdBy, assignedTo: [], status: 'unassigned'
   });
 }
-}
+
 //remove shifts
-await Shift.findByIdAndDelete(id);
-return { ok: true }; 
+async remove(_id){
+  await Shift.findByIdAndDelete(_id);
+  return { ok: true }; 
+}
 
-//all user incliuding manager and empolyee can update status
-const s = await Shift.findById(id);
-if (!s) throw new Error('Shift not found');
 
-s.assignedTo = userIds;
+async assign(_id, userIds){
+  //all user incliuding manager and empolyee can update status
+  const s = await Shift.findById(_id);
+  if (!s) throw new Error('Shift not found');
 
-s.status = userIds.length === 0 
-    ? 'unassigned'
-    : 'assigned'; 
+  s.assignedTo = userIds;
 
-await s.save();
-return s;
+  s.status = userIds.length === 0 
+      ? 'unassigned'
+      : 'assigned'; 
+
+  await s.save();
+  return s;
+}
+}
 
 module.exports = new ShiftService();
 

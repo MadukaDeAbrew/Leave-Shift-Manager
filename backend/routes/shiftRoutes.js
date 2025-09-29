@@ -1,7 +1,7 @@
 // backend/routes/shiftRoutes.js
 const express = require('express');
 const router = express.Router();
-const ShiftService = require('../ShiftService');
+const ShiftServer = require('../shiftserver');
 
 const {
   getShifts,
