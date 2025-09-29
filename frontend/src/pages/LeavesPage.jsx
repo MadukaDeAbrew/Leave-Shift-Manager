@@ -113,6 +113,21 @@ export default function LeavesPage() {
     }
   };
 
+  //convert the datetime-local data to display.
+  const formatDateTimeLocal = (isoString) =>{
+      if(!isoString) return '';
+      const d=new Date(isoString);
+      
+      const pad = (n)=>n.toString().padStart(2,'0');
+      const yyyy = d.getFullYear();
+      const mm = pad(d.getMonth() +1);
+      const dd = pad(d.getDate());
+      const hh = pad(d.getHours());
+      const min = pad(d.getMinutes());
+
+      return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+    }
+
   // Save edits for a Pending leave
   const saveEdit = async (patch) => {
     if (!editTarget) return;
@@ -167,43 +182,45 @@ export default function LeavesPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-4">
-        {STATUS_TABS.map((t) => (
-          <button
-            key={t}
-            onClick={() => { setStatusTab(t); setPage(1); }}
-            className={`px-4 py-2 rounded border transition-colors ${
-              statusTab === t
-                ? 'bg-[#1e3a8a] text-white border-[#1e3a8a]'
-                : 'bg-white text-[#1e3a8a] border-[#cbd5e1] hover:bg-[#eef2ff]'
+      <div className='flex items-center justify-between mb-4'>
+        <div className="flex gap-2 mb-4">
+          {STATUS_TABS.map((t) => (
+            <button
+              key={t}
+              onClick={() => { setStatusTab(t); setPage(1); }}
+              className={`px-4 py-2 rounded border transition-colors ${
+                statusTab === t
+                  ? 'bg-[#1e3a8a] text-white border-[#1e3a8a]'
+                  : 'bg-white text-[#1e3a8a] border-[#cbd5e1] hover:bg-[#eef2ff]'
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+
+        {(ok || err) && (
+          <div
+            ref={alertRef}
+            tabIndex={-1}
+            role="alert"
+            aria-live="assertive"
+            className={`mb-4 p-3 rounded border ${
+              ok ? 'bg-green-50 border-green-300 text-green-800'
+                : 'bg-red-50 border-red-300 text-red-800'
             }`}
           >
-            {t}
-          </button>
-        ))}
-      </div>
-
-      {(ok || err) && (
-        <div
-          ref={alertRef}
-          tabIndex={-1}
-          role="alert"
-          aria-live="assertive"
-          className={`mb-4 p-3 rounded border ${
-            ok ? 'bg-green-50 border-green-300 text-green-800'
-               : 'bg-red-50 border-red-300 text-red-800'
-          }`}
+            {ok || err}
+          </div>
+        )}
+        <div>
+          <button
+          onClick = {()=> setShowPopup(true)}
+          className='px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700'
         >
-          {ok || err}
-        </div>
-      )}
-      <button
-        onClick = {()=> setShowPopup(true)}
-        className='px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700'
-      >
-        New Leave Request
-      </button>
-      {showPopup && (
+          New Leave Request
+        </button>
+        {showPopup && (
         <Popup onClose={()=>setShowPopup(false)}>
            <LeaveForm
             initial={{
@@ -228,8 +245,8 @@ export default function LeavesPage() {
           </div>
           <LeaveForm
             initial={{
-              startDate: editTarget.startDate,
-              endDate: editTarget.endDate,
+              startDate: formatDateTimeLocal(editTarget.startDate),
+              endDate: formatDateTimeLocal(editTarget.endDate),
               leaveType: editTarget.leaveType,
               reason: editTarget.reason,
             }}
@@ -240,7 +257,11 @@ export default function LeavesPage() {
         </div>
         </Popup>
       )}
-
+      </div>
+        
+    </div>
+      
+      
       {/* List */}
       <div className="mt-6 bg-white border border-[#cbd5e1] rounded shadow overflow-x-auto">
         {loading ? (

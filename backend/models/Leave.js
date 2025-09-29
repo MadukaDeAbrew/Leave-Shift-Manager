@@ -24,6 +24,10 @@ const LeaveSchema = new mongoose.Schema(
       default: 'Pending',
       index: true,
     },
+    isAcceptSwap:{type:Boolean,required:true, default: false},
+    preference1:{type:String},
+    preference2:{type:String},
+    preference3:{type:String}
   },
   { timestamps: true }
 );
