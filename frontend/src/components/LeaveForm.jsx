@@ -75,11 +75,11 @@ export default function LeaveForm({
     >
       <h3 className="text-lg font-semibold text-[#1e3a8a]">Request Leave</h3>
 
-      {/* Start Date */}
+      {/* Start Date & Time */}
       <label className="block">
         <span className="block text-sm text-[#4b5563] mb-1">Start Date</span>
         <input
-          type="date"
+          type="datetime-local"
           name="startDate"
           value={form.startDate}
           onChange={update('startDate')}
@@ -90,11 +90,11 @@ export default function LeaveForm({
         {showErr('startDate') && <p className="text-red-600 text-sm mt-1">{errors.startDate}</p>}
       </label>
 
-      {/* End Date */}
+      {/* End Date & Time */}
       <label className="block">
         <span className="block text-sm text-[#4b5563] mb-1">End Date</span>
         <input
-          type="date"
+          type="datetime-local"
           name="endDate"
           value={form.endDate}
           onChange={update('endDate')}
@@ -141,7 +141,62 @@ export default function LeaveForm({
           <p className="text-xs text-gray-500 ml-auto">{form.reason.length}/500</p>
         </div>
       </label>
-
+      {/*Swap or NOT */}
+      <label className='flex items-center gap-2'>
+        <input
+          type='checkbox'
+          checked={showShifts}
+          onChange={(e)=> setShowShifts(e.target.checked)}>
+          </input>
+          <span className='text-sm text-[#4b5563]'>I accept Swap.</span>
+      </label>
+      {showShifts &&(
+        <div>
+          <div className='mt-3'>
+          <label className='block text-sm mb-1'>Preference 1</label>
+          <select 
+            className='border rounded p-2 w-full'
+            value={selectedShift}
+            on onChange={(e)=> setSelectedShift(e.target.value)}>
+              <option value=''>Select a shift</option>
+              {shifts.map((shift)=>(
+                <option key={shift._id} value={shift._id}>
+                 {shift.shiftDate}{shift.weekDay} {shift.startTime}{shift.endTime}
+                </option>
+              ))}
+            </select>
+        </div>
+        <div className='mt-3'>
+          <label className='block text-sm mb-1'>Preference 2</label>
+          <select 
+            className='border rounded p-2 w-full'
+            value={selectedShift}
+            on onChange={(e)=> setSelectedShift(e.target.value)}>
+              <option value=''>Select a shift</option>
+              {shifts.map((shift)=>(
+                <option key={shift._id} value={shift._id}>
+                 {shift.shiftDate}{shift.weekDay} {shift.startTime}{shift.endTime}
+                </option>
+              ))}
+            </select>
+        </div>
+        <div className='mt-3'>
+          <label className='block text-sm mb-1'>Preference 3</label>
+          <select 
+            className='border rounded p-2 w-full'
+            value={selectedShift}
+            on onChange={(e)=> setSelectedShift(e.target.value)}>
+              <option value=''>Select a shift</option>
+              {shifts.map((shift)=>(
+                <option key={shift._id} value={shift._id}>
+                 {shift.shiftDate}{shift.weekDay} {shift.startTime}{shift.endTime}
+                </option>
+              ))}
+            </select>
+        </div>
+        </div>
+      )
+      }
       <div className="flex gap-2 pt-2">
         <button
           type="submit"
