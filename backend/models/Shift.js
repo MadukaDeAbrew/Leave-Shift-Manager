@@ -1,6 +1,7 @@
 // backend/models/Shift.js
 const mongoose = require('mongoose');
-const {Schema, Type} = mongoose;       //destructure S,Y from mogo
+//const Schema = mongoose.Schema;
+//const {Schema, Type} = mongoose;       //destructure S,Y from mogo
 
 const ShiftSchema = new mongoose.Schema(
   {
@@ -13,7 +14,7 @@ const ShiftSchema = new mongoose.Schema(
     endTime:   { type: String, required: true },          // "HH:MM" 24h
     role:      { type: String, default: '' },
 
-    assignedTo: [ObjectId],
+    assignedTo: [mongoose.Schema.Types.ObjectId],
 
   //  status: {
    //   type: String,
@@ -36,7 +37,7 @@ module.exports = mongoose.model('Shift', ShiftSchema);
 
 
 //preference//
-const mongoose = require('mongoose');
+//const mongoose = require('mongoose');
 
 const timeRangeSchema = new mongoose.Schema({
   start: { type: String, required: true, match: /^\d{2}:\d{2}$/ },         

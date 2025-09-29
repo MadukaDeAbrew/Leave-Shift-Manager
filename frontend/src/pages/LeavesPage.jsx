@@ -59,6 +59,23 @@ export default function LeavesPage() {
     }
   }, [ok, err]);
 
+  //control the request windows
+  const [showPopup, setShowPopup] = useState(false);
+
+  const Popup = ({children, onClose}) =>(
+    <div className='flex fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50'>
+      <div className='bg-white p-6 rounded shadow-lg relative w-full max-w-md'>
+        <button  
+          onClick = {onClose}
+          className='absolute top-2 right-2 text-grey-500 hover:text-gray-700'
+            >
+           x
+        </button>
+        {children}
+      </div>
+    </div>
+  );
+
   // Create new leave
   const handleCreate = async (form) => {
     setErr(''); setOk('');
@@ -95,6 +112,21 @@ export default function LeavesPage() {
       setErr(`Failed to cancel leave${status ? ` (HTTP ${status})` : ''}. ${msg}`);
     }
   };
+
+  //convert the datetime-local data to display.
+  const formatDateTimeLocal = (isoString) =>{
+      if(!isoString) return '';
+      const d=new Date(isoString);
+      
+      const pad = (n)=>n.toString().padStart(2,'0');
+      const yyyy = d.getFullYear();
+      const mm = pad(d.getMonth() +1);
+      const dd = pad(d.getDate());
+      const hh = pad(d.getHours());
+      const min = pad(d.getMinutes());
+
+      return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+    }
 
   // Save edits for a Pending leave
   const saveEdit = async (patch) => {
@@ -150,44 +182,62 @@ export default function LeavesPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-4">
-        {STATUS_TABS.map((t) => (
-          <button
-            key={t}
-            onClick={() => { setStatusTab(t); setPage(1); }}
-            className={`px-4 py-2 rounded border transition-colors ${
-              statusTab === t
-                ? 'bg-[#1e3a8a] text-white border-[#1e3a8a]'
-                : 'bg-white text-[#1e3a8a] border-[#cbd5e1] hover:bg-[#eef2ff]'
+      <div className='flex items-center justify-between mb-4'>
+        <div className="flex gap-2 mb-4">
+          {STATUS_TABS.map((t) => (
+            <button
+              key={t}
+              onClick={() => { setStatusTab(t); setPage(1); }}
+              className={`px-4 py-2 rounded border transition-colors ${
+                statusTab === t
+                  ? 'bg-[#1e3a8a] text-white border-[#1e3a8a]'
+                  : 'bg-white text-[#1e3a8a] border-[#cbd5e1] hover:bg-[#eef2ff]'
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+
+        {(ok || err) && (
+          <div
+            ref={alertRef}
+            tabIndex={-1}
+            role="alert"
+            aria-live="assertive"
+            className={`mb-4 p-3 rounded border ${
+              ok ? 'bg-green-50 border-green-300 text-green-800'
+                : 'bg-red-50 border-red-300 text-red-800'
             }`}
           >
-            {t}
-          </button>
-        ))}
-      </div>
-
-      {(ok || err) && (
-        <div
-          ref={alertRef}
-          tabIndex={-1}
-          role="alert"
-          aria-live="assertive"
-          className={`mb-4 p-3 rounded border ${
-            ok ? 'bg-green-50 border-green-300 text-green-800'
-               : 'bg-red-50 border-red-300 text-red-800'
-          }`}
+            {ok || err}
+          </div>
+        )}
+        <div>
+          <button
+          onClick = {()=> setShowPopup(true)}
+          className='px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700'
         >
-          {ok || err}
-        </div>
-      )}
-
-      {/* Create Form (shown when not editing) */}
-      {!editTarget && (
-        <LeaveForm key={formKey} onSubmit={handleCreate} disabled={submitting} />
+          New Leave Request
+        </button>
+        {showPopup && (
+        <Popup onClose={()=>setShowPopup(false)}>
+           <LeaveForm
+            initial={{
+              startDate: '',
+              endDate: '',
+              leaveType:'',
+              reason:'s',
+            }}
+            onSubmit={handleCreate} 
+            disabled={submitting}
+          />
+        </Popup>
       )}
 
       {/* Inline Edit (reuses LeaveForm with initial values) */}
       {editTarget && (
+        <Popup onClose={()=>setEditTarget(false)}>
         <div className="mb-6">
           <div className="mb-2 font-semibold text-[#1e3a8a]">
             Editing request from {new Date(editTarget.startDate).toLocaleDateString()}
@@ -195,8 +245,8 @@ export default function LeavesPage() {
           </div>
           <LeaveForm
             initial={{
-              startDate: editTarget.startDate,
-              endDate: editTarget.endDate,
+              startDate: formatDateTimeLocal(editTarget.startDate),
+              endDate: formatDateTimeLocal(editTarget.endDate),
               leaveType: editTarget.leaveType,
               reason: editTarget.reason,
             }}
@@ -205,8 +255,13 @@ export default function LeavesPage() {
             disabled={submitting}
           />
         </div>
+        </Popup>
       )}
-
+      </div>
+        
+    </div>
+      
+      
       {/* List */}
       <div className="mt-6 bg-white border border-[#cbd5e1] rounded shadow overflow-x-auto">
         {loading ? (
@@ -291,7 +346,7 @@ export default function LeavesPage() {
                 <span key={n} className="flex items-center">
                   {dots && <span className="mx-1 text-gray-400">…</span>}
                   <PageBadge n={n} />
-                </span>
+                </span>                                                                                             
               );
             })}
         </div>
