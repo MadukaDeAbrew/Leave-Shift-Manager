@@ -1,3 +1,4 @@
+import { useMemo, useState, useEffect } from 'react';
 
 /**
  * LeaveForm with validation (Subtask 4.2)
@@ -18,8 +19,8 @@ export default function LeaveForm({
   disabled = false,          
 }) {
   const [form, setForm] = useState({
-    startDate: initial?.startDate?.slice(0, 10) || '',
-    endDate:   initial?.endDate?.slice(0, 10)   || '',
+    startDate: initial?.startDate || '',
+    endDate:   initial?.endDate || '',
     leaveType: initial?.leaveType || 'Annual',
     reason:    initial?.reason || '',
   });
@@ -30,7 +31,7 @@ export default function LeaveForm({
   const onBlur = (e) => setTouched((t) => ({ ...t, [e.target.name]: true }));
 
   // Helpers
-  const toDate = (s) => (s ? new Date(s + 'T00:00:00') : null);
+  //const toDate = (s) => (s ? new Date(s + 'T00:00:00') : null);
   const today = useMemo(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
@@ -40,8 +41,8 @@ export default function LeaveForm({
   // Validation
   const errors = useMemo(() => {
     const e = {};
-    const start = toDate(form.startDate);
-    const end   = toDate(form.endDate);
+    const start = form.startDate;
+    const end   = form.endDate;
 
     if (!form.startDate) e.startDate = 'Start date is required.';
     if (!form.endDate) e.endDate = 'End date is required.';
@@ -60,13 +61,28 @@ export default function LeaveForm({
     setSubmitAttempted(true);
     if (hasErrors || disabled) return;
     onSubmit?.({
-      startDate: form.startDate,
-      endDate: form.endDate,
+      startDate: new Date(form.startDate),
+      endDate: new Date(form.endDate),
       leaveType: form.leaveType,
       reason: form.reason.trim(),
     });
   };
 
+    const [showShifts, setShowShifts] = useState(false);
+    const [shifts,setShifts] = useState([]);
+    const [selectedShift, setSelectedShift] =useState(['','','']);
+
+    //loading shift list
+    useEffect(()=>{
+      if (showShifts){
+        fetch('/api/shifts')
+        .then((res)=>res.json())
+        .then((data)=>setShifts(data))
+        .catch((err) => console.error("Error fetching shifts:", err))
+      }
+    },[showShifts]);
+
+    
   return (
     <form
       onSubmit={submit}
