@@ -1,4 +1,5 @@
 // A2 - EmployeesPage.jsx
+
 import { useEffect, useState } from "react";
 import axiosInstance from "../axiosConfig";
 import { useAuth } from "../context/AuthContext";
@@ -6,12 +7,11 @@ import { useAuth } from "../context/AuthContext";
 export default function EmployeesPage() {
   const { token } = useAuth();
 
-  // Encapsulation: state is private to this component 
-  const [employees, setEmployees] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showModal, setShowModal] = useState(false);
-  const [editing, setEditing] = useState(null); // holds the employee being edited
+  const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -19,28 +19,28 @@ export default function EmployeesPage() {
     jobRole: "",
     employmentType: "",
     joinedDate: "",
+    employeeId: "",
+    systemRole: "employee", // default is set to employee
   });
 
-  // Observer Design Pattern (Behavioural): React automatically re-renders when state changes 
-  const fetchEmployees = async () => {
+  const fetchUsers = async () => {
     try {
       const res = await axiosInstance.get("/api/employees", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setEmployees(res.data);
+      setUsers(res.data);
     } catch (e) {
-      console.error("Failed to load employees:", e);
-      setError("Failed to load employees.");
+      console.error("Failed to load users:", e);
+      setError("Failed to load users.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (token) fetchEmployees();
+    if (token) fetchUsers();
   }, [token]);
 
-  // Factory Pattern (Creational): creates a new employee object with defaults 
   const openCreate = () => {
     setEditing(null);
     setForm({
@@ -50,48 +50,48 @@ export default function EmployeesPage() {
       jobRole: "",
       employmentType: "Full Time",
       joinedDate: "",
+      employeeId: "",
+      systemRole: "employee",
     });
     setShowModal(true);
   };
 
-  // Template Method Pattern (Behavioural): common save flow (decide PUT or POST) 
   const onSave = async () => {
     try {
       if (editing) {
-        // Update existing
         await axiosInstance.put(`/api/employees/${editing._id}`, form, {
           headers: { Authorization: `Bearer ${token}` },
         });
       } else {
-        // Create new
         await axiosInstance.post("/api/employees", form, {
           headers: { Authorization: `Bearer ${token}` },
         });
       }
       setShowModal(false);
-      fetchEmployees();
+      fetchUsers();
     } catch (e) {
-      console.error("Save employee error:", e.response?.data || e.message);
-      alert("Failed to save employee");
+      console.error("Save user error:", e.response?.data || e.message);
+      alert("Failed to save user");
     }
   };
 
-  const openEdit = (emp) => {
-    setEditing(emp);
-    setForm(emp); // Memento Pattern (Behavioural): clone current state of employee
+  const openEdit = (user) => {
+    setEditing(user);
+    setForm(user);
     setShowModal(true);
   };
 
+  // added prompt to validate delete command
   const onDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this employee?")) return;
+    if (!window.confirm("Are you sure you want to delete this user?")) return;
     try {
       await axiosInstance.delete(`/api/employees/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      fetchEmployees();
+      fetchUsers();
     } catch (e) {
-      console.error("Delete employee error:", e);
-      alert("Failed to delete employee");
+      console.error("Delete user error:", e);
+      alert("Failed to delete user");
     }
   };
 
@@ -100,52 +100,68 @@ export default function EmployeesPage() {
     setForm((f) => ({ ...f, [name]: value }));
   };
 
-  if (loading) return <div className="p-4">Loading employees…</div>;
+  if (loading) return <div className="p-4">Loading users…</div>;
   if (error) return <div className="p-4 text-red-600">{error}</div>;
 
   return (
-    <div className="max-w-5xl mx-auto mt-10 p-6 bg-white shadow rounded">
+    <div className="max-w-6xl mx-auto mt-10 p-6 bg-white shadow rounded">
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Employees</h1>
+        <h1 className="text-2xl font-bold">All Employees </h1>
         <button
           onClick={openCreate}
-          className="px-4 py-2 bg-blue-600 text-white rounded"
+          className="px-4 py-2 bg-green-600 text-white rounded"
         >
-          + Add Employee
+          + Add User
         </button>
       </div>
 
-      {employees.length === 0 ? (
-        <p>No employees yet.</p>
+      {users.length === 0 ? (
+        <p>No users yet.</p>
       ) : (
-        <table className="w-full border">
+        <table className="w-full border text-sm">
           <thead>
             <tr className="bg-gray-100">
+              <th className="p-2 border">Employee ID</th>
               <th className="p-2 border">First Name</th>
               <th className="p-2 border">Last Name</th>
               <th className="p-2 border">Email</th>
               <th className="p-2 border">Job Role</th>
               <th className="p-2 border">Employment Type</th>
+              <th className="p-2 border">Joined Date</th>
+              <th className="p-2 border">System Role</th>
               <th className="p-2 border">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {employees.map((emp) => (
-              <tr key={emp._id}>
-                <td className="p-2 border">{emp.firstName}</td>
-                <td className="p-2 border">{emp.lastName}</td>
-                <td className="p-2 border">{emp.email}</td>
-                <td className="p-2 border">{emp.jobRole}</td>
-                <td className="p-2 border">{emp.employmentType}</td>
+            {users.map((u) => (
+              <tr key={u._id}>
+                <td className="p-2 border">{u.employeeId}</td>
+                <td className="p-2 border">{u.firstName}</td>
+                <td className="p-2 border">{u.lastName}</td>
+                <td className="p-2 border">{u.email}</td>
+                <td className="p-2 border">{u.jobRole}</td>
+                <td className="p-2 border">{u.employmentType}</td>
+                <td className="p-2 border">
+                  {u.joinedDate
+                    ? new Date(u.joinedDate).toLocaleDateString()
+                    : "—"}
+                </td>
+                <td className="p-2 border font-semibold">
+                  {u.systemRole === "admin" ? (
+                    <span className="text-red-600">Admin</span>
+                  ) : (
+                    "Employee"
+                  )}
+                </td>
                 <td className="p-2 border">
                   <button
-                    onClick={() => openEdit(emp)}
+                    onClick={() => openEdit(u)}
                     className="px-2 py-1 bg-yellow-500 text-white rounded mr-2"
                   >
                     Edit
                   </button>
                   <button
-                    onClick={() => onDelete(emp._id)}
+                    onClick={() => onDelete(u._id)}
                     className="px-2 py-1 bg-red-600 text-white rounded"
                   >
                     Delete
@@ -157,13 +173,24 @@ export default function EmployeesPage() {
         </table>
       )}
 
-      {/* Modal for encapsulates editing/creating employee */}
+      {/* Modal to Create/Edit User */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
           <div className="bg-white rounded p-6 w-96">
             <h2 className="text-xl font-bold mb-4">
-              {editing ? "Edit Employee" : "Add Employee"}
+              {editing ? "Edit User" : "Add User"}
             </h2>
+
+            <label className="block mb-2">
+              <span className="text-sm">Employee ID</span>
+              <input
+                type="text"
+                name="employeeId"
+                value={form.employeeId || ""}
+                onChange={onChange}
+                className="w-full p-2 border rounded"
+              />
+            </label>
 
             <label className="block mb-2">
               <span className="text-sm">First Name</span>
@@ -194,7 +221,7 @@ export default function EmployeesPage() {
                 name="email"
                 value={form.email || ""}
                 onChange={onChange}
-                disabled={!!editing} // Abstraction: cannot edit email
+                disabled={!!editing}
                 className="w-full p-2 border rounded bg-gray-100"
               />
             </label>
@@ -222,6 +249,34 @@ export default function EmployeesPage() {
                 <option>Part Time</option>
                 <option>Casual</option>
                 <option>Contract</option>
+              </select>
+            </label>
+
+            <label className="block mb-2">
+              <span className="text-sm">Joined Date</span>
+              <input
+                type="date"
+                name="joinedDate"
+                value={
+                  form.joinedDate
+                    ? new Date(form.joinedDate).toISOString().substring(0, 10)
+                    : ""
+                }
+                onChange={onChange}
+                className="w-full p-2 border rounded"
+              />
+            </label>
+
+            <label className="block mb-2">
+              <span className="text-sm">System Role</span>
+              <select
+                name="systemRole"
+                value={form.systemRole || "employee"}
+                onChange={onChange}
+                className="w-full p-2 border rounded"
+              >
+                <option value="employee">Employee</option>
+                <option value="admin">Admin</option>
               </select>
             </label>
 
