@@ -2,7 +2,7 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
 const { protect, adminOnly } = require("../middleware/authMiddleware");
-const Employee = require("../models/User"); // reuse User model
+const User = require("../models/User"); // reuse User model
 
 const router = express.Router();
 
@@ -22,7 +22,7 @@ router.get("/", protect, adminOnly, async (req, res) => {
 // === GET all users ===
 router.get("/", protect, adminOnly, async (req, res) => {
   try {
-    const users = await Employee.find().select("-password").lean(); // no filter
+    const users = await User.find().select("-password").lean(); // no filter
     res.json(users);
   } catch (e) {
     console.error("Fetch users error:", e);
@@ -30,51 +30,63 @@ router.get("/", protect, adminOnly, async (req, res) => {
   }
 });
 
-// === POST create new employee ===
+// === POST create new user (employee or admin) ===
+// === POST create new user (employee or admin) ===
 router.post("/", protect, adminOnly, async (req, res) => {
   try {
-    const { firstName, lastName, email, jobRole, employmentType, joinedDate } = req.body;
+    const {
+      firstName,
+      lastName,
+      email,
+      jobRole,
+      employmentType,
+      joinedDate,
+      employeeId,
+      systemRole // NEW: allow systemRole from req.body
+    } = req.body;
 
     if (!email) {
       return res.status(400).json({ message: "Email is required" });
     }
 
-    const exists = await Employee.findOne({ email });
+    const exists = await User.findOne({ email });
     if (exists) {
-      return res.status(409).json({ message: "Employee with this email already exists." });
+      return res.status(409).json({ message: "User with this email already exists." });
     }
 
-    // Hash a default temp password
+    // Create a temp password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash("TempPass123!", salt);
 
-    const newEmployee = await Employee.create({
+    const newUser = await User.create({
       email: email.toLowerCase(),
       password: hashedPassword,
-      systemRole: "employee",
+      systemRole: systemRole === "admin" ? "admin" : "employee", // ✅ only admin can pass "admin"
       firstName: firstName || "New",
-      lastName: lastName || "Employee",
+      lastName: lastName || "User",
       jobRole: jobRole || "Unassigned",
       employmentType: employmentType || "Full Time",
       joinedDate: joinedDate || new Date(),
-      employeeId: `EMP${Date.now()}`,
+      employeeId: employeeId || `EMP${Date.now()}`,
     });
 
     res.status(201).json({
-      id: newEmployee._id,
-      email: newEmployee.email,
-      firstName: newEmployee.firstName,
-      lastName: newEmployee.lastName,
-      jobRole: newEmployee.jobRole,
-      employmentType: newEmployee.employmentType,
-      joinedDate: newEmployee.joinedDate,
-      employeeId: newEmployee.employeeId,
+      id: newUser._id,
+      email: newUser.email,
+      firstName: newUser.firstName,
+      lastName: newUser.lastName,
+      jobRole: newUser.jobRole,
+      employmentType: newUser.employmentType,
+      joinedDate: newUser.joinedDate,
+      employeeId: newUser.employeeId,
+      systemRole: newUser.systemRole,
     });
   } catch (e) {
-    console.error("Create employee error:", e);
-    res.status(500).json({ message: "Server error creating employee" });
+    console.error("Create user error:", e);
+    res.status(500).json({ message: "Server error creating user" });
   }
 });
+
 
 // === PUT update employee ===
 router.put("/:id", protect, adminOnly, async (req, res) => {
@@ -82,39 +94,38 @@ router.put("/:id", protect, adminOnly, async (req, res) => {
     const { id } = req.params;
     const updates = req.body;
 
-    const employee = await Employee.findById(id);
-    if (!employee) {
+    // Check if employeeId is taken (excluding current user)
+    if (updates.employeeId) {
+      const exists = await User.findOne({
+        employeeId: updates.employeeId,
+        _id: { $ne: id },
+      });
+      if (exists) {
+        return res.status(400).json({ message: "Employee ID already exists." });
+      }
+    }
+
+    const user = await User.findByIdAndUpdate(id, updates, {
+      new: true,
+      runValidators: true,
+    }).lean();
+
+    if (!user) {
       return res.status(404).json({ message: "Employee not found" });
     }
 
-    employee.firstName = updates.firstName ?? employee.firstName;
-    employee.lastName = updates.lastName ?? employee.lastName;
-    employee.jobRole = updates.jobRole ?? employee.jobRole;
-    employee.employmentType = updates.employmentType ?? employee.employmentType;
-    employee.joinedDate = updates.joinedDate ?? employee.joinedDate;
-
-    await employee.save();
-
-    res.json({
-      id: employee._id,
-      email: employee.email,
-      firstName: employee.firstName,
-      lastName: employee.lastName,
-      jobRole: employee.jobRole,
-      employmentType: employee.employmentType,
-      joinedDate: employee.joinedDate,
-      employeeId: employee.employeeId,
-    });
+    res.json(user);
   } catch (e) {
     console.error("Update employee error:", e);
-    res.status(500).json({ message: "Server error updating employee" });
+    res.status(500).json({ message: "Server error updating employee." });
   }
 });
+
 
 // === DELETE employee ===
 router.delete("/:id", protect, adminOnly, async (req, res) => {
   try {
-    const deleted = await Employee.findByIdAndDelete(req.params.id);
+    const deleted = await User.findByIdAndDelete(req.params.id);
     if (!deleted) {
       return res.status(404).json({ message: "Employee not found" });
     }

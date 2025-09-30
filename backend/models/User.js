@@ -21,7 +21,7 @@ const userSchema = new mongoose.Schema(
     }, // system access role
 
     // === Employee / Job fields ===
-    employeeId: { type: String, unique: true, sparse: true }, 
+    employeeId: { type: String, unique: true, sparse: true, trim: true }, 
     firstName: { type: String, trim: true },
     lastName: { type: String, trim: true },
     employmentType: { 
