@@ -17,7 +17,8 @@ const getLeaves = async (req, res) => {
     const skip  = (page - 1) * limit;
 
     // base filter: admin sees all, user sees own
-    const filter = isAdmin ? {} : { userId: req.user.id };
+    //const filter = isAdmin ? {} : { userId: req.user.id };
+    const filter ={};
 
     // optional status filter (exact match: Pending/Approved/Rejected/Cancelled)
     if (req.query.status) {
@@ -35,7 +36,6 @@ const getLeaves = async (req, res) => {
       q.exec(),
       Leave.countDocuments(filter),
     ]);
-
     res.json({
       leaves,
       page,

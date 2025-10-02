@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 
 /**
  * LeaveForm with validation (Subtask 4.2)
@@ -65,12 +65,14 @@ export default function LeaveForm({
       endDate: new Date(form.endDate),
       leaveType: form.leaveType,
       reason: form.reason.trim(),
+      isAcceptSwap:showShifts,
+      preferences:selectedShift,
     });
   };
 
-    const [showShifts, setShowShifts] = useState(false);
+    const [showShifts, setShowShifts] = useState(initial.showShifts||false);
     //const [shifts,setShifts] = useState([]);
-    const [selectedShift, setSelectedShift] =useState([]);
+    const [selectedShift, setSelectedShift] =useState(initial.selectedShift||[]);
 
     //loading shift list
     /*useEffect(()=>{
@@ -183,6 +185,7 @@ export default function LeaveForm({
       {/*Swap or NOT */}
       <label className='flex items-center gap-2'>
         <input
+          name='isAcceptSwap'
           type='checkbox'
           checked={showShifts}
           onChange={(e)=> setShowShifts(e.target.checked)}>
@@ -200,8 +203,7 @@ export default function LeaveForm({
             onChange={handleSelectShifts}>
               <option value=''>Select a shift</option>
               {
-              shiftOptions.filter((shift)=>!selectedShift.includes(shift)).
-              map((shift,index) =>(
+              shiftOptions.filter((shift)=>!selectedShift.includes(shift)).map((shift,index) =>(
                 <option key={index} value={shift}>
                  {shift}
                 </option>

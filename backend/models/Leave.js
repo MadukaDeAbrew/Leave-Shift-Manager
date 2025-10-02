@@ -9,7 +9,7 @@ const LeaveSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-    username:{type:String},
+    userName:{type:String, default:'-'},
     startDate: { type: Date, required: true },
     endDate:   { type: Date, required: true },
     leaveType: {
@@ -21,7 +21,7 @@ const LeaveSchema = new mongoose.Schema(
     reason: { type: String, trim: true, maxlength: 500 },
     status: {
       type: String,
-      enum: ['Pending', 'Approved', 'Rejected', 'Cancelled'],
+      enum: ['Pending', 'Approved', 'Rejected'],
       default: 'Pending',
       index: true,
     },
