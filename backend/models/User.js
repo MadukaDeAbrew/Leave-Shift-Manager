@@ -47,7 +47,7 @@ const userSchema = new mongoose.Schema(
     //role: { type: String, enum: ['user', 'admin'], default: 'user' },// duplicate with systemRole
 
     /*userId: {
-      type: Schema.Types.ObjectId,
+      type: new mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
        index: true

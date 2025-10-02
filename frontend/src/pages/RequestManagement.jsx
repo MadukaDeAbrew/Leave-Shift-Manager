@@ -1,12 +1,14 @@
 // frontend/src/pages/LeavesPage.jsx
 import { useEffect, useMemo, useRef, useState } from 'react';
 import axiosInstance from '../axiosConfig';
-import LeaveForm from '../components/LeaveForm';
+//import LeaveForm from '../components/LeaveForm';
+import SwapForm from '../components/SwapForm';
+import { useAuth } from '../context/AuthContext';
 
-const STATUS_TABS = ['All', 'Pending', 'Approved', 'Rejected'];
+const STATUS_TABS = ['All', 'Queue', 'Processed'];
 const LIMIT = 10;
 
-export default function LeavesPage() {
+export default function RequestManagement() {
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
@@ -22,18 +24,24 @@ export default function LeavesPage() {
 
   // which row is being edited (null when creating)
   const [editTarget, setEditTarget] = useState(null);
+  const [swapTarget, setSwapTarget] = useState(null);
+  const [showSwapDialog, setShowSwapDialog] = useState(null);
 
   const queryStatus = useMemo(
     () => (statusTab === 'All' ? undefined : statusTab),
     [statusTab]
   );
 
+  const{token} =useAuth();
   const fetchLeaves = async () => {
     setErr(''); setOk('');
     try {
       setLoading(true);
-      const res = await axiosInstance.get('/api/leaves', {
+      const res = await axiosInstance.get('/api/admin/requests', {
         params: { page, limit: LIMIT, ...(queryStatus ? { status: queryStatus } : {}) },
+        headers:{
+          Authorization:`Bearer ${token}`,
+        }
       });
       const data = res.data || {};
       setRows(Array.isArray(data.leaves) ? data.leaves : []);
@@ -59,9 +67,6 @@ export default function LeavesPage() {
     }
   }, [ok, err]);
 
-  //control the request windows
-  const [showPopup, setShowPopup] = useState(false);
-
   const Popup = ({children, onClose}) =>(
     <div className='flex fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50'>
       <div className='bg-white p-6 rounded shadow-lg relative w-full max-w-md'>
@@ -76,42 +81,6 @@ export default function LeavesPage() {
     </div>
   );
 
-  // Create new leave
-  const handleCreate = async (form) => {
-    setErr(''); setOk('');
-    setSubmitting(true);
-    try {
-      await axiosInstance.post('/api/leaves', form);
-      setOk('Leave request submitted successfully.');
-      setFormKey(k => k + 1); // reset form
-      setPage(1);
-      fetchLeaves();
-    } catch (e) {
-      const status = e?.response?.status;
-      const msg = e?.response?.data?.message || e?.message || 'Failed to submit leave request.';
-      console.error('Create leave failed:', status, msg);
-      setErr(`Failed to submit leave request${status ? ` (HTTP ${status})` : ''}. ${msg}`);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // Cancel (delete) a Pending leave
-  const cancelLeave = async (id) => {
-    if (!window.confirm('Cancel this leave request?')) return;
-    setErr(''); setOk('');
-    try {
-      await axiosInstance.delete(`/api/leaves/${id}`);
-      setRows(prev => prev.filter(r => r._id !== id));
-      setOk('Leave request cancelled.');
-      if (editTarget?._id === id) setEditTarget(null);
-    } catch (e) {
-      const status = e?.response?.status;
-      const msg = e?.response?.data?.message || e?.message || 'Failed to cancel leave.';
-      console.error('Cancel leave failed:', status, msg);
-      setErr(`Failed to cancel leave${status ? ` (HTTP ${status})` : ''}. ${msg}`);
-    }
-  };
 
   //convert the datetime-local data to display.
   const formatDateTimeLocal = (isoString) =>{
@@ -128,7 +97,7 @@ export default function LeavesPage() {
       return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
     }
 
-  // Save edits for a Pending leave
+  // Save edits for an approved shift swap
   const saveEdit = async (patch) => {
     if (!editTarget) return;
     setErr(''); setOk('');
@@ -137,7 +106,7 @@ export default function LeavesPage() {
       const res = await axiosInstance.put(`/api/leaves/${editTarget._id}`, patch);
       const updated = res.data;
       setRows(prev => prev.map(r => (r._id === updated._id ? updated : r)));
-      setOk('Leave updated.');
+      setOk('Shifts updated.');
       setEditTarget(null);
     } catch (e) {
       const status = e?.response?.status;
@@ -149,11 +118,57 @@ export default function LeavesPage() {
     }
   };
 
+  const rejectLeave = async (id) => {
+    if (!window.confirm('Reject this leave request?')) return;
+    setErr(''); setOk('');
+    try {
+      const res = await axiosInstance.patch(`/api/admin/requests/${id}/reject`);
+      const updated = res.data;
+      
+      setRows(prev =>prev.map(r=>
+        r._id ===id ? {...r,status: updated.status} : r
+      ));
+
+      setOk('Leave request rejected.');
+      if (editTarget?._id === id) setEditTarget(null);
+    } catch (e) {
+      const status = e?.response?.status;
+      const msg = e?.response?.data?.message || e?.message || 'Failed to reject leave.';
+      console.error('Reject leave failed:', status, msg);
+      setErr(`Failed to reject leave${status ? ` (HTTP ${status})` : ''}. ${msg}`);
+    }
+  };
+
+  const approveLeave = async (patch) => {
+    try {
+      const res = await axiosInstance.patch(`/api/admin/requests/${patch._id}/approve`);
+      const updated = res.data;
+      
+      setRows(prev =>prev.map(r=>
+        r._id ===patch._id ? {...r,status: updated.status} : r
+      ));
+
+      setOk('Leave request approved.');
+
+      if(updated.isAcceptSwap){
+        setSwapTarget(updated);
+        setShowSwapDialog(true);
+      }
+      if (editTarget?._id === patch._id) setEditTarget(null);
+    } catch (e) {
+      const status = e?.response?.status;
+      const msg = e?.response?.data?.message || e?.message || 'Failed to reject leave.';
+      console.error('Reject leave failed:', status, msg);
+      setErr(`Failed to reject leave${status ? ` (HTTP ${status})` : ''}. ${msg}`);
+    }
+  };
+
   const statusPill = (status) => {
     const base = 'px-2 py-1 rounded text-sm';
-    if (status === 'Approved') return `${base} bg-green-100 text-green-800`;
-    if (status === 'Rejected') return `${base} bg-red-100 text-red-800`;
-    if (status === 'Cancelled') return `${base} bg-gray-100 text-gray-800`;
+    if (status) return `${base} bg-grey-100 text-grey-800`
+    //if (status === 'Approved') return `${base} bg-grey-100 text-grey-800`;
+    //if (status === 'Rejected') return `${base} bg-grey-100 text-grey-800`;
+    //if (status === 'Cancelled') return `${base} bg-gray-100 text-gray-800`;
     return `${base} bg-yellow-100 text-yellow-800`;
   };
 
@@ -177,7 +192,7 @@ export default function LeavesPage() {
   return (
     <div className="max-w-5xl mx-auto mt-8 p-4">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold text-[#1e3a8a]">Leaves</h1>
+        <h1 className="text-2xl font-bold text-[#1e3a8a]">Requests</h1>
         <div className="text-sm text-[#4b5563]">Total: {total}</div>
       </div>
 
@@ -214,49 +229,36 @@ export default function LeavesPage() {
           </div>
         )}
         <div>
-          <button
-          onClick = {()=> setShowPopup(true)}
-          className='px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700'
-        >
-          New Leave Request
-        </button>
-        {showPopup && (
-        <Popup  onClose={()=>setShowPopup(false)}>
-           <LeaveForm
-            initial={{
-              startDate: '',
-              endDate: '',
-              leaveType:'',
-              reason:'s',
-            }}
-            onSubmit={handleCreate} 
-            disabled={submitting}
-          />
-        </Popup>
-      )}
-
       {/* Inline Edit (reuses LeaveForm with initial values) */}
-      {editTarget && (
-        <Popup className='max-h-60 overflow-y-auto' onClose={()=>setEditTarget(false)}>
-        <div className="mb-6">
-          <div className="mb-2 font-semibold text-[#1e3a8a]">
-            Editing request from {new Date(editTarget.startDate).toLocaleDateString()}
-            {editTarget.endDate ? ` to ${new Date(editTarget.endDate).toLocaleDateString()}` : ''}
+      {showSwapDialog && (
+  <Popup onClose={() => setShowSwapDialog(false)}>
+    <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center">
+      <div className="mb-4 font-semibold text-blue-800">
+        Assign a replacement shift for {swapTarget.userName}
+      </div>
+        <div className="bg-white p-6 rounded-lg shadow-xl w-96">
+            <h2 className="text-xl font-semibold mb-4">
+              {swapTarget.userName}
+            </h2>
+
+            <ul className="list-disc pl-6">
+              {swapTarget.preferences?.map((p, i) => (
+                <li key={i}>{p}</li>
+              ))}
+            </ul>
+
+            <div className="flex justify-end space-x-2 mt-4">
+              <button
+                type='submit'
+                className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700"
+              >
+                Save Shift Swap
+              </button>
+            </div>
           </div>
-          <LeaveForm
-            initial={{
-              startDate: formatDateTimeLocal(editTarget.startDate),
-              endDate: formatDateTimeLocal(editTarget.endDate),
-              leaveType: editTarget.leaveType,
-              reason: editTarget.reason,
-            }}
-            onSubmit={saveEdit}
-            onCancel={() => setEditTarget(null)}
-            disabled={submitting}
-          />
         </div>
-        </Popup>
-      )}
+  </Popup>
+)}
       </div>
         
     </div>
@@ -267,7 +269,7 @@ export default function LeavesPage() {
         {loading ? (
           <div className="p-4">Loading…</div>
         ) : rows.length === 0 ? (
-          <div className="p-4 text-[#4b5563]">No leave records.</div>
+          <div className="p-4 text-[#4b5563]">No request records.</div>
         ) : (
           <table className="min-w-full">
             <thead>
@@ -294,22 +296,24 @@ export default function LeavesPage() {
                   <td className="p-3 border-b">{l.leaveType || '-'}</td>
                   <td className="p-3 border-b">{l.reason || '-'}</td>
                   <td className="p-3 border-b">
-                    <span className={statusPill(l.status || 'Pending')}>{l.status || 'Pending'}</span>
+                    <span className={statusPill(l.status || 'Pending')}>
+                      {l.status === 'Pending'?'Queue' : 'Processed'}
+                      </span>
                   </td>
                   <td className="p-3 border-b">
                     {l.status === 'Pending' ? (
                       <div className="flex gap-2">
                         <button
-                          onClick={() => setEditTarget(l)}
+                          onClick={() => approveLeave(l)}
                           className="px-3 py-1 rounded bg-yellow-500 text-white hover:bg-yellow-600"
                         >
-                          Edit
+                          Approve
                         </button>
                         <button
-                          onClick={() => cancelLeave(l._id)}
+                          onClick={() => rejectLeave(l._id)}
                           className="px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700"
                         >
-                          Cancel
+                          Decline
                         </button>
                       </div>
                     ) : (

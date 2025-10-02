@@ -69,25 +69,48 @@ export default function LeaveForm({
   };
 
     const [showShifts, setShowShifts] = useState(false);
-    const [shifts,setShifts] = useState([]);
-    const [selectedShift, setSelectedShift] =useState(['','','']);
+    //const [shifts,setShifts] = useState([]);
+    const [selectedShift, setSelectedShift] =useState([]);
 
     //loading shift list
-    useEffect(()=>{
+    /*useEffect(()=>{
       if (showShifts){
         fetch('/api/shifts')
         .then((res)=>res.json())
         .then((data)=>setShifts(data))
         .catch((err) => console.error("Error fetching shifts:", err))
       }
-    },[showShifts]);
+    },[showShifts]);*/
+    
+    const shiftOptions = [
+      "Monday Morning",
+      "Monday Afternoon",
+      "Tuesday Morning",
+      "Tuesday Afternoon",
+      "Wednesday Morning",
+      "Wednesday Afternoon",
+      "Thursday Morning",
+      "Thursday Afternoon",
+      "Friday Morning",
+      "Friday Afternoon"
+    ];
 
+    const handleSelectShifts = (e) =>{
+      const value = e.target.value;
+      if(value && !selectedShift.includes(value) && selectedShift.length<3){
+        setSelectedShift([...selectedShift,value]);
+      }
+    };
+
+    const handleRemoveShifts = (shift)=>{
+      setSelectedShift(selectedShift.filter((s)=> s!== shift));
+    };
     
   return (
     <form
       onSubmit={submit}
       noValidate
-      className="bg-[#f4f6f8] border border-[#cbd5e1] rounded-xl shadow p-5 grid gap-4"
+      className="bg-[#f4f6f8] border border-[#cbd5e1] rounded-xl shadow p-5 grid gap-4 max-h-[90vh] overflow-y-auto"
     >
       <h3 className="text-lg font-semibold text-[#1e3a8a]">Request Leave</h3>
 
@@ -169,50 +192,39 @@ export default function LeaveForm({
       {showShifts &&(
         <div>
           <div className='mt-3'>
-          <label className='block text-sm mb-1'>Preference 1</label>
+          <label className='block text-sm mb-1'>Preference (Max 3)</label>
           <select 
             className='border rounded p-2 w-full'
-            value={selectedShift}
-            on onChange={(e)=> setSelectedShift(e.target.value)}>
+            disabled={selectedShift.length >= 3}
+            value=""
+            onChange={handleSelectShifts}>
               <option value=''>Select a shift</option>
-              {shifts.map((shift)=>(
-                <option key={shift._id} value={shift._id}>
-                 {shift.shiftDate}{shift.weekDay} {shift.startTime}{shift.endTime}
+              {
+              shiftOptions.filter((shift)=>!selectedShift.includes(shift)).
+              map((shift,index) =>(
+                <option key={index} value={shift}>
+                 {shift}
                 </option>
-              ))}
+              ))
+            }
             </select>
-        </div>
-        <div className='mt-3'>
-          <label className='block text-sm mb-1'>Preference 2</label>
-          <select 
-            className='border rounded p-2 w-full'
-            value={selectedShift}
-            on onChange={(e)=> setSelectedShift(e.target.value)}>
-              <option value=''>Select a shift</option>
-              {shifts.map((shift)=>(
-                <option key={shift._id} value={shift._id}>
-                 {shift.shiftDate}{shift.weekDay} {shift.startTime}{shift.endTime}
-                </option>
+            <div className="space-y-2">
+              {selectedShift.map((shift) => (
+                <div key={shift} className="flex items-center justify-between border p-2 rounded">
+                  <span>{shift}</span>
+                  <button
+                    className="text-red-500"
+                    onClick={() => handleRemoveShifts(shift)}
+                  >
+                    ✕
+                  </button>
+                </div>
               ))}
-            </select>
-        </div>
-        <div className='mt-3'>
-          <label className='block text-sm mb-1'>Preference 3</label>
-          <select 
-            className='border rounded p-2 w-full'
-            value={selectedShift}
-            on onChange={(e)=> setSelectedShift(e.target.value)}>
-              <option value=''>Select a shift</option>
-              {shifts.map((shift)=>(
-                <option key={shift._id} value={shift._id}>
-                 {shift.shiftDate}{shift.weekDay} {shift.startTime}{shift.endTime}
-                </option>
-              ))}
-            </select>
+            </div>
         </div>
         </div>
       )
-      }
+    }
       <div className="flex gap-2 pt-2">
         <button
           type="submit"
@@ -225,7 +237,6 @@ export default function LeaveForm({
         >
           {disabled ? 'Submitting…' : 'Submit Request'}
         </button>
-
         {onCancel && (
           <button
             type="button"
@@ -237,5 +248,4 @@ export default function LeaveForm({
         )}
       </div>
     </form>
-  );
-}
+  )};
