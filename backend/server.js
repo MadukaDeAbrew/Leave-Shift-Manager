@@ -1,3 +1,7 @@
+// TEMP: 健康检查
+app.get('/api/health', (req, res) => {
+  res.json({ ok: true, t: Date.now(), note: 'health from server.js' });
+});
 
 const express = require("express");
 const dotenv = require("dotenv");

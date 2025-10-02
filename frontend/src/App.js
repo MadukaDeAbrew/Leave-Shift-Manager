@@ -2,6 +2,8 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect } from "react";
 import { useAuth, AuthProvider } from "./context/AuthContext";
+import ShiftsPage from './pages/ShiftsPage.jsx';
+
 
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -46,9 +48,12 @@ function AppShell() {
           <Route path="/" element={<Home />} />
           <Route path="/leaves" element={<LeavesPage />} />
           <Route path="/shifts" element={<ShiftsPage />} />
+         
+
+
           <Route path="/my-swaps" element={<MySwapRequests />} />
-          <Route path="/profile" element={<MyProfile />} />               {/* ✅ added */}
-          <Route path="/change-password" element={<ChangePassword />} /> {/* ✅ added */}
+          <Route path="/profile" element={<MyProfile />} />               {/*  added */}
+          <Route path="/change-password" element={<ChangePassword />} /> {/*  added */}
         </Route>
 
         {/* Admin-only */}
