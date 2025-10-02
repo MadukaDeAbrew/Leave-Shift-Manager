@@ -5,9 +5,9 @@ const ShiftService = require('../shiftserver');
 
 exports.getShifts = async (req, res) => {
   try {
-    const { from, to, scope = 'me', userId, status, roleInWork } = req.query;
-    if (scope === 'all' && req.user.role !== 'manager') {
-      return res.status(403).json({ message: 'Access denied: Manager only' });
+    const { from, to, scope = 'me', userId, status, roleInwork } = req.query;
+    if (scope === 'all' && req.user.systemRole !== 'admin') {
+      return res.status(403).json({ message: 'Access denied: Adimn only' });
     }
     const shifts = await ShiftService.list({
       from,
@@ -24,10 +24,10 @@ exports.getShifts = async (req, res) => {
   }
 };
 
-//check unassigned (only manager)
+//Get/api/shifts/unassigned (only manager)
 exports.getUnassigned = async (req, res) => {
   try {
-    if (req.user.role !== 'admin') {
+    if (req.user.systemRole !== 'admin') {
       return res.status(403).json({ message: 'Access denied: admin only' });
     }
 
@@ -40,20 +40,20 @@ exports.getUnassigned = async (req, res) => {
 };
 
 
-// create shifts
+// Post/api/shifts
 exports.addShift = async (req, res) => {
   try {
-    if (req.user.role !== 'admin') {
+    if (req.user.systemRole !== 'admin') {
       return res.status(403).json({ message: 'Access denied: Admin only' });
     }
 
-    const { date, slotKey, roleInWork, title } = req.body;
-    if (!date || !slotKey) {
+    const { shiftDate, slotKey, roleInwork, title } = req.body;
+    if (!shiftDate || !slotKey) {
       return res.status(400).json({ message: 'date & slotKey are required' });
     }
 
     const doc = await ShiftService.create({
-      date,
+      shiftDate,
       slotKey,
       roleInWork,
       title,
@@ -68,7 +68,7 @@ exports.addShift = async (req, res) => {
 //update shift
 exports.updateShift = async (req, res) => {
   try {
-    if (req.user.role !== 'admin') {
+    if (req.user.systemRole !== 'admin') {
       return res.status(403).json({ message: 'Access denied: Admin only' });
     }
 
@@ -84,7 +84,7 @@ exports.updateShift = async (req, res) => {
 //delete shift
 exports.deleteShift = async (req, res) => {
   try {
-    if (req.user.role !== 'admin') {
+    if (req.user.systemRole !== 'admin') {
       return res.status(403).json({ message: 'Access denied: Admin only' });
     }
 
@@ -99,7 +99,7 @@ exports.deleteShift = async (req, res) => {
 //assign shifts
 exports.assignShift = async (req, res) => {
   try {
-    if (req.user.role !== 'admin') {
+    if (req.user.systemRole !== 'admin') {
       return res.status(403).json({ message: 'Access denied: Admin only' });
     }
 
