@@ -157,8 +157,8 @@ export default function LeavesPage() {
     return `${base} bg-yellow-100 text-yellow-800`;
   };
 
-  const canPrev = page > 1;
-  const canNext = page < pages;
+  //const canPrev = page > 1;
+  //const canNext = page < pages;
 
   const PageBadge = ({ n }) => (
     <button
@@ -249,6 +249,8 @@ export default function LeavesPage() {
               endDate: formatDateTimeLocal(editTarget.endDate),
               leaveType: editTarget.leaveType,
               reason: editTarget.reason,
+              showShifts:editTarget.isAcceptSwap,
+              selectedShift:editTarget.preferences,
             }}
             onSubmit={saveEdit}
             onCancel={() => setEditTarget(null)}

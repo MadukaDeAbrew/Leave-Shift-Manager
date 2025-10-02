@@ -165,11 +165,11 @@ export default function RequestManagement() {
 
   const statusPill = (status) => {
     const base = 'px-2 py-1 rounded text-sm';
-    if (status) return `${base} bg-grey-100 text-grey-800`
+    if (status==='Pending') return `${base} bg-blue-400 text-white`
     //if (status === 'Approved') return `${base} bg-grey-100 text-grey-800`;
     //if (status === 'Rejected') return `${base} bg-grey-100 text-grey-800`;
     //if (status === 'Cancelled') return `${base} bg-gray-100 text-gray-800`;
-    return `${base} bg-yellow-100 text-yellow-800`;
+    return `${base} bg-blue-700 text-white`;
   };
 
   const canPrev = page > 1;
@@ -235,7 +235,6 @@ export default function RequestManagement() {
     <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center">
       <div className="mb-4 font-semibold text-blue-800">
         Assign a replacement shift for {swapTarget.userName}
-      </div>
         <div className="bg-white p-6 rounded-lg shadow-xl w-96">
             <h2 className="text-xl font-semibold mb-4">
               {swapTarget.userName}
@@ -243,10 +242,10 @@ export default function RequestManagement() {
 
             <ul className="list-disc pl-6">
               {swapTarget.preferences?.map((p, i) => (
-                <li key={i}>{p}</li>
+                <li key={i}>Preferences:{p}</li>
               ))}
             </ul>
-
+              
             <div className="flex justify-end space-x-2 mt-4">
               <button
                 type='submit'
@@ -256,7 +255,8 @@ export default function RequestManagement() {
               </button>
             </div>
           </div>
-        </div>
+      </div>
+    </div>
   </Popup>
 )}
       </div>
@@ -274,6 +274,7 @@ export default function RequestManagement() {
           <table className="min-w-full">
             <thead>
               <tr className="bg-[#eef2ff] text-[#1e3a8a]">
+                <th className="text-left p-3 border-b">Employee Name</th>
                 <th className="text-left p-3 border-b">Start</th>
                 <th className="text-left p-3 border-b">End</th>
                 <th className="text-left p-3 border-b">Type</th>
@@ -285,6 +286,9 @@ export default function RequestManagement() {
             <tbody>
               {rows.map((l) => (
                 <tr key={l._id} className="hover:bg-[#f9fafb]">
+                  <td className="p-3 border-b">
+                    {l.userName? l.userName: '-'}
+                    </td>
                   <td className="p-3 border-b">
                     {l.startDate ? new Date(l.startDate).toLocaleDateString() : '-'}
                   </td>
