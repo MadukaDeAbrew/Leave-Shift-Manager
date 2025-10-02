@@ -35,7 +35,7 @@ function overlapsAny(existing, sMin, eMin) {
  */
 const getShifts = async (req, res) => {
   try {
-    const isAdmin = req.user?.role === 'admin';
+    const isAdmin = req.user?.systemRole === 'admin';
 
     const page  = Math.max(parseInt(req.query.page || '1', 10), 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit || '10', 10), 1), 100);
@@ -45,7 +45,7 @@ const getShifts = async (req, res) => {
     if (!isAdmin) filter.userId = req.user.id;
 
     // date range
-    const { start, end, role, status } = req.query;
+    const { start, end,jobRole, status } = req.query;
     if (start || end) {
       filter.shiftDate = {};
       if (start) {
@@ -154,7 +154,7 @@ const addShift = async (req, res) => {
       shiftDate: date,
       startTime,
       endTime,
-      roleInwork: roleInwork || '',
+      jobRole: jobRole || '',
       status: 'Scheduled',
     });
 
