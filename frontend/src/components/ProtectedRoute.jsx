@@ -8,7 +8,7 @@ export default function ProtectedRoute({ requireAdmin = false }) {
   if (loading) return <div className="p-4">Loading…</div>;
   if (!user) return <Navigate to="/login" replace />;
 
-  if (requireAdmin && user.type !== "Admin") {
+  if (requireAdmin && user.systemRole !== "admin") {
     return <Navigate to="/" replace />;
   }
 

@@ -12,7 +12,7 @@ const ShiftSchema = new mongoose.Schema(
     weekDay: {type: String},            // day of the shift ,raise weekday automatically
     startTime: { type: String, required: true },          // "HH:MM" 24h
     endTime:   { type: String, required: true },          // "HH:MM" 24h
-    roleInwork:      { type: String, default: '' },
+    jobRole:      { type: String, default: '' },
 
     assignedTo: [mongoose.Schema.Types.ObjectId],
 
