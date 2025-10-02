@@ -9,7 +9,7 @@ const Leave = require('../models/Leave');
  */
 const getLeaves = async (req, res) => {
   try {
-    const isAdmin = req.user?.role === 'admin';
+    const isAdmin = req.user?.systemRole === 'admin';
 
     // pagination params
     const page  = Math.max(parseInt(req.query.page || '1', 10), 1);

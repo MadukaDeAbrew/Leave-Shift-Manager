@@ -2,7 +2,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect } from "react";
 import { useAuth, AuthProvider } from "./context/AuthContext";
-import ShiftsPage from './pages/ShiftsPage.jsx';
 
 
 import Navbar from "./components/Navbar";
@@ -20,6 +19,7 @@ import AdminSwapRequests from "./pages/AdminSwapRequests";
 import EmployeesPage from "./pages/EmployeesPage"; 
 import MyProfile from "./pages/MyProfile";          // A2- new page for MyProfile feature
 import ChangePassword from "./pages/ChangePassword";  // A2- new page for ChangePassword feature
+import RequestManagement from "./pages/RequestManagement";
 
 function AppShell() {
   const { user, restoreSession } = useAuth();
@@ -52,8 +52,9 @@ function AppShell() {
 
 
           <Route path="/my-swaps" element={<MySwapRequests />} />
-          <Route path="/profile" element={<MyProfile />} />               {/*  added */}
-          <Route path="/change-password" element={<ChangePassword />} /> {/*  added */}
+          <Route path="/profile" element={<MyProfile />} />               {/* ✅ added */}
+          <Route path="/change-password" element={<ChangePassword />} /> {/* ✅ added */}
+          <Route path="/admin/requests" element={<RequestManagement />} />
         </Route>
 
         {/* Admin-only */}

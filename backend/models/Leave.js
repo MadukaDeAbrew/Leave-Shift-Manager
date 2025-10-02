@@ -9,6 +9,7 @@ const LeaveSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    username:{type:String},
     startDate: { type: Date, required: true },
     endDate:   { type: Date, required: true },
     leaveType: {
@@ -25,9 +26,7 @@ const LeaveSchema = new mongoose.Schema(
       index: true,
     },
     isAcceptSwap:{type:Boolean,required:true, default: false},
-    preference1:{type:String},
-    preference2:{type:String},
-    preference3:{type:String}
+    preferences:[{type:String}]
   },
   { timestamps: true }
 );

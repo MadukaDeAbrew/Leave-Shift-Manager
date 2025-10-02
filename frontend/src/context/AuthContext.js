@@ -40,7 +40,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   // checking role using user.type (from wrapUser)
-  const isAdmin = !!user && user.type === "Admin";
+  const isAdmin = !!user && user.systemRole === "admin";
 
   const value = useMemo(
     () => ({ token, user, isAdmin, loading, login, logout }),

@@ -34,14 +34,21 @@ export default function Navbar() {
               My Swaps
             </NavLink>
 
+            
+      
             {/* Admin-only */}
             {isAdmin && (
               <>
-                <NavLink to="/admin/leaves" className={({ isActive }) => (isActive ? "underline" : "")}>
+              {/*
+              <NavLink to="/admin/leaves" className={({ isActive }) => (isActive ? "underline" : "")}>
                   Admin Leaves
                 </NavLink>
                 <NavLink to="/admin/swaps" className={({ isActive }) => (isActive ? "underline" : "")}>
                   Admin Swaps
+                </NavLink>
+                 */}
+                <NavLink to="/admin/requests" className={({ isActive }) => (isActive ? "underline" : "")}>
+                  Request Management
                 </NavLink>
                 <NavLink to="/employees" className={({ isActive }) => (isActive ? "underline" : "")}>
                   Employees
