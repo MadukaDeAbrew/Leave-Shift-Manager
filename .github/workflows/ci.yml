@@ -10,6 +10,7 @@ jobs:
   test:
     name: Run Tests
     runs-on: self-hosted
+    environment: MONGO_URI   #Needed as secrets are stored under Environment
 
     strategy:
       matrix:
@@ -29,22 +30,20 @@ jobs:
         MONGO_URI: ${{ secrets.MONGO_URI }}
         JWT_SECRET: ${{ secrets.JWT_SECRET }}
         PORT: ${{ secrets.PORT }}
-      run: | 
+      run: |
         echo "Secret 1 is: $MONGO_URI"
         echo "Secret 2 is: $JWT_SECRET"
         echo "Secret 3 is: $PORT"
 
-    - run: pm2 stop all
+    - run: pm2 stop all || true   # ✅ safer
 
-    # Backend deps (tutorial uses Yarn)
     - name: Install Backend Dependencies
       working-directory: ./backend
-      run: | 
+      run: |
         npm install --global yarn
         yarn --version
         yarn install
 
-    # Frontend deps
     - name: Install Frontend Dependencies
       working-directory: ./frontend
       run: |
@@ -52,14 +51,12 @@ jobs:
         sudo rm -rf ./build
         yarn install
 
-    # Build frontend — keep this env so warnings don’t fail CI
     - name: Build Frontend
       working-directory: ./frontend
       env:
         CI: "false"
       run: yarn run build
 
-    # Backend tests
     - name: Run Backend Tests
       env:
         MONGO_URI: ${{ secrets.MONGO_URI }}
@@ -69,7 +66,8 @@ jobs:
       run: npm test
 
     - run: npm ci
-    - run: | 
+
+    - run: |
         cd ./backend
         touch .env
         echo "${{ secrets.PROD }}" > .env
