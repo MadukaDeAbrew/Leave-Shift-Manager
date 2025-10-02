@@ -44,7 +44,7 @@ const userSchema = new mongoose.Schema(
     address: { type: String, trim: true },
 
 
-    role: { type: String, enum: ['user', 'admin'], default: 'user' },
+    //role: { type: String, enum: ['user', 'admin'], default: 'user' },// duplicate with systemRole
 
     /*userId: {
       type: Schema.Types.ObjectId,
@@ -55,7 +55,7 @@ const userSchema = new mongoose.Schema(
   
   jobRole: {
     type: String,
-    enum: ['Cashier','Waiter','Receptionist', 'Barista', 'Kitechen Hand', 'Others'], 
+    enum: ['Cashier','Waiter','Receptionist', 'Barista', 'Kitechen Hand', 'Admin', 'Others'], 
     default: 'Others',
    },
   dob: { type: Date },
