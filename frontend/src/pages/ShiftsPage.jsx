@@ -4,12 +4,13 @@ import axios from '../axiosConfig';
 import { useAuth } from '../context/AuthContext';
 
 
-export function AddShiftForm({onCreated}) {
+function AddShiftForm({onCreated}) {
   // input value for form
   const [shiftDate, setShiftDate] = useState('');       
   const [slotKey, setSlotKey] = useState('');  
-  const [role, setRole] = useState('');        
+  const [jobRole, setjobRole] = useState('');        
   const [message, setMessage] = useState('');
+  
 
   //only select time below
    const slots = [
@@ -25,16 +26,18 @@ export function AddShiftForm({onCreated}) {
   const handleSubmit = async (e) => {
     e.preventDefault();  
     try {
+      console.log({ shiftDate, slotKey, jobRole });
+
       const res = await axios.post('/api/shifts', {
         shiftDate,          
         slotKey,         
-        roleInwork: role 
+        jobRole,
       });
       // if sucessful
       setMessage(`Shift created: ${res.data.shiftDate} ${res.data.startTime}-${res.data.endTime}`);
       setShiftDate('');
       setSlotKey('');
-      setRole('');
+      setjobRole('');
       onCreated && onCreated(); 
     } catch (err) {
       setMessage(`Error: ${err.response?.data?.message || err.message}`);
@@ -45,8 +48,7 @@ export function AddShiftForm({onCreated}) {
     <div className="max-w-md mx-auto p-6 bg-white shadow rounded-lg"> 
       <h2 className="text-lg font-bold mb-4">Add New Shift</h2>
 
-      <form onSubmit={handleSubmit} className="space-y-4">  {/* Form */}
-        
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-sm font-medium mb-1">Date</label>
           <input
@@ -79,8 +81,8 @@ export function AddShiftForm({onCreated}) {
             type="text"
             className="border rounded px-3 py-2 w-full"
             placeholder="e.g., Cashier"
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
+            value={jobRole}
+            onChange={(e) => setjobRole(e.target.value)}
             required
           />
         </div>
@@ -98,10 +100,10 @@ export function AddShiftForm({onCreated}) {
       {message && <p className="mt-4 text-sm">{message}</p>}
     </div>
   );
-}
+};
 
 //Table//
-export function ShiftTable({ reloadFlag, scope = 'all' }) {
+function ShiftTable({ reloadFlag, scope = 'all' }) {
   const [shifts, setShifts] = useState([]);
   const [msg, setMsg] = useState('');
 
@@ -146,7 +148,7 @@ export function ShiftTable({ reloadFlag, scope = 'all' }) {
                 {"time solt"}
                 <td className="px-4 py-2 border">{s.startTime} - {s.endTime}</td>
                 {"role"}
-                <td className="px-4 py-2 border">{s.roleInWork || '-'}</td>
+                <td className="px-4 py-2 border">{s.jobRole || '-'}</td>
                 {"assigned"}
                 <td className="px-4 py-2 border">
                   {s.assignedTo && s.assignedTo.length > 0
@@ -180,7 +182,7 @@ export function ShiftTable({ reloadFlag, scope = 'all' }) {
       </div>
     </div>
   );
-}
+};
 
 // week component
 
@@ -220,7 +222,7 @@ function WeekGrid({ weekStart, slots, shifts, isAdmin, onAssign, onUnassign, onC
                     ) : <em className="text-gray-400">NUll</em>
                   ) : (
                     <div className="flex flex-col gap-1">
-                      <div className="text-sm"><b>{shift.roleInwork || '-'}</b> <span className="text-xs">· {shift.status}</span></div>
+                      <div className="text-sm"><b>{shift.jobRole || '-'}</b> <span className="text-xs">· {shift.status}</span></div>
                       <div className="text-xs text-gray-600">{shift.startTime} — {shift.endTime}</div>
                       <div className="text-xs">
                         {Array.isArray(shift.assignedTo) && shift.assignedTo.length > 0
@@ -245,7 +247,7 @@ function WeekGrid({ weekStart, slots, shifts, isAdmin, onAssign, onUnassign, onC
       </tbody>
     </table>
   );
-}
+};
 
 // Week component calculate
 function startOfWeek(dateStr) {
@@ -254,16 +256,16 @@ function startOfWeek(dateStr) {
   const diff = (day === 0 ? -6 : 1) - day; 
   d.setDate(d.getDate() + diff);
   return d.toISOString().slice(0, 10);
-}
+};
 function addDays(iso, n) {
   const d = new Date(iso); d.setDate(d.getDate() + n);
   return d.toISOString().slice(0, 10);
-}
+};
 
 
 export default function ShiftsPage() {                      
   const { user } = useAuth();                   
-  const isAdmin = user?.role === 'admin';       
+  const isAdmin = user?.systemRole === 'admin';       
 
   const [reloadFlag, setReloadFlag] = useState(0);
 
@@ -272,9 +274,10 @@ export default function ShiftsPage() {
   const weekStart = useMemo(() => startOfWeek(anchorDate), [anchorDate]);
   const weekEnd = useMemo(() => addDays(weekStart, 6), [weekStart]);
 
-  const [filters, setFilters] = useState({ roleInwork:'', slotKey:'', status:'' });
+  const [filters, setFilters] = useState({ jobRole:'', slotKey:'', status:'' });
   const [shifts, setShifts] = useState([]);
   const [msg, setMsg] = useState('');
+  const [modalOpen, setModalOpen] = useState(false);
 
 const load = async () => {
     try {
@@ -282,7 +285,7 @@ const load = async () => {
         from: weekStart,
         to: weekEnd,
         scope: isAdmin ? 'all' : 'me',               
-        ...(filters.roleInwork && { roleInwork: filters.roleInwork }),
+        ...(filters.jobRole && { jobRole: filters.jobRole }),
         ...(filters.slotKey && { slotKey: filters.slotKey }),
         ...(filters.status && { status: filters.status }),
       };
@@ -306,29 +309,54 @@ const load = async () => {
     await axios.post(`/api/shifts/${shiftId}/assign`, { userIds: [] });
     load();
   };
-  const onCreateEmpty = async (date, slotKey) => {
-    const role = filters.roleInwork || prompt('') || '';
-    await axios.post('/api/shifts', { slotKey, roleInwork:filters.roleInwork });
+  const onCreateEmpty = async (slotKey) => {
+    const role = filters.jobRole || prompt('') || '';
+    await axios.post('/api/shifts', { slotKey, jobRole:filters.jobRole });
     setReloadFlag(v => v + 1);
   };
 
   return (
+    <div>
     <div className="max-w-6xl mx-auto p-6 space-y-6">
-
       <div className="flex items-center gap-2">
         <button className="px-2 py-1 border rounded" onClick={() => setAnchorDate(addDays(weekStart, -7))}>◀ previous</button>
         <strong>{weekStart} ~ {weekEnd}</strong>
         <button className="px-2 py-1 border rounded" onClick={() => setAnchorDate(addDays(weekStart, 7))}>next ▶</button>
         <input type="date" className="border rounded px-2 py-1" value={anchorDate} onChange={e=>setAnchorDate(e.target.value)} />
       </div>
+    </div>
 
-      
-      {isAdmin && (
-        <>
+    {isAdmin && (
+      <div className="flex justify-end mb-4">
+        <button
+          onClick={() => setModalOpen(true)}
+          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+        >
+          Manage Shifts
+        </button>
+        {/*pop up window.*/}
+          {modalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+            <div className="bg-white w-[600px] max-h-[80vh] overflow-y-auto p-6 rounded shadow-lg">
+              <h2 className="text-lg font-semibold mb-4">Shift Management</h2>
+
+              <AddShiftForm onCreated={() => { setReloadFlag(v => v + 1); setModalOpen(false); }} />
+
+              <div className="flex justify-end mt-4">
+                <button
+                  onClick={() => setModalOpen(false)}
+                  className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
           <div className="flex flex-wrap gap-2 items-end">
             <div>
-              <label className="block text-xs">roleInWork</label>
-              <input className="border rounded px-2 py-1" value={filters.roleInWork} onChange={e=>setFilters(f=>({...f, roleInWork:e.target.value}))} />
+              <label className="block text-xs">jobRole</label>
+              <input className="border rounded px-2 py-1" value={filters.jobRole} onChange={e=>setFilters(f=>({...f, jobRole:e.target.value}))} />
             </div>
             <div>
               <label className="block text-xs">time</label>
@@ -354,16 +382,13 @@ const load = async () => {
             </div>
             <button className="px-3 py-1 border rounded" onClick={load}>Search</button>
           </div>
-        </>
-      )}
+        </div>
+      )
+    }
+    
+    {msg && <div className="text-sm text-red-600">{msg}</div>}
 
-      {true && (
-              <AddShiftForm onCreated={() => setReloadFlag(v => v + 1)} />
-            )}
-
-      {msg && <div className="text-sm text-red-600">{msg}</div>}
-
-     
+     <div>
       <WeekGrid
         weekStart={weekStart}
         slots={[
@@ -383,9 +408,8 @@ const load = async () => {
       <ShiftTable reloadFlag={reloadFlag} scope={isAdmin ? 'all' : 'me'} />
 
     </div>
-  );
-}
 
-
-
+  </div>
+  )
+};
 

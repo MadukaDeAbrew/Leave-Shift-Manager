@@ -5,7 +5,6 @@ const ShiftService = require('../shiftserver');
 
 exports.getShifts = async (req, res) => {
   try {
-    const { from, to, scope = 'me', userId, status, roleInwork } = req.query;
     if (scope === 'all' && req.user.systemRole !== 'admin') {
       return res.status(403).json({ message: 'Access denied: Adimn only' });
     }
@@ -16,7 +15,7 @@ exports.getShifts = async (req, res) => {
       viewerId: req.user.id,
       userId,
       status,
-      roleInWork,
+      jobRole,
     });
     res.json(shifts);
   } catch (err) {
@@ -47,7 +46,7 @@ exports.addShift = async (req, res) => {
       return res.status(403).json({ message: 'Access denied: Admin only' });
     }
 
-    const { shiftDate, slotKey, roleInwork, title } = req.body;
+    const { shiftDate, slotKey, jobRole, title } = req.body;
     if (!shiftDate || !slotKey) {
       return res.status(400).json({ message: 'date & slotKey are required' });
     }
@@ -55,7 +54,7 @@ exports.addShift = async (req, res) => {
     const doc = await ShiftService.create({
       shiftDate,
       slotKey,
-      roleInWork,
+      jobRole,
       title,
       createdBy: req.user.id,
     });

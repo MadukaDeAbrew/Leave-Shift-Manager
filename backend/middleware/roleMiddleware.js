@@ -34,7 +34,7 @@ module.exports = { admin };
 function requireRole(requiredRole) {
   return (req, res, next) => {
     try {
-      if (!req.user || req.user.role !== requiredRole) {
+      if (!req.user || req.user.systemRole !== requiredRole) {
         return res.status(403).json({ message: `Access denied: ${requiredRole} only` });
       }
       next();
@@ -50,7 +50,7 @@ function requireRole(requiredRole) {
  *   router.patch('/leaves/:id/approve', protect, admin, approveLeave)
  */
 function admin(req, res, next) {
-  if (!req.user || req.user.role !== 'admin') {
+  if (!req.user || req.user.systemRole !== 'admin') {
     return res.status(403).json({ message: 'Admin only' });
   }
   next();

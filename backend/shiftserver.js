@@ -23,19 +23,19 @@ class ShiftService {
 //unassigned
 async listUnassigned({ from, to }) {
     const q = { status: 'unassigned' }; 
-    if (from && to) q.date = { $gte: from, $lte: to }; 
+    if (from && to) q.shiftDate = { $gte: from, $lte: to }; 
     return Shift.find(q).sort({ shiftDate: 1, startTime: 1 });
 }
 
 //manager create new shifts
-async create({ date, slotKey,roleInwork, createdBy }) {
+async create({ shiftDate, slotKey,jobRole, createdBy }) {
   const slot = slots.byKey.get(slotKey);
   if (!slot) throw new Error('no time valids');      
   const { start, end } = slot;   
 
   return Shift.create({
-    date, startTime: start, endTime: end, slotKey,
-    roleInWork, createdBy, assignedTo: [], status: 'unassigned'
+    shiftDate, startTime: start, endTime: end, slotKey,
+    jobRole, createdBy, assignedTo: [], status: 'unassigned'
   });
 }
 
