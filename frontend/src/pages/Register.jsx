@@ -5,7 +5,7 @@ import axiosInstance from '../axiosConfig';
 
 const Register = () => {
   const [formData, setFormData] = useState({
-    name: '', email: '', password: '', confirmPassword: ''
+    firstname: '', lastname: '', email: '', password: '', confirmPassword: ''
   });
   const [submitting, setSubmitting] = useState(false);
   const [ok, setOk] = useState('');
@@ -21,28 +21,34 @@ const Register = () => {
   };
 
   // keep 1.2 validation rules (client-side); 1.3 focuses on API wiring
-  const validate = () => {
-    const fe = {};
-    const emailOk = /^\S+@\S+\.\S+$/.test(formData.email);
-    const strongPwd =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?#&])[A-Za-z\d@$!%*?#&]{8,}$/.test(formData.password);
 
-    if (!formData.name.trim()) fe.name = 'Name is a required field.';
-    if (!formData.email) fe.email = 'Email is a required field.';
-    else if (!emailOk) fe.email = 'Invalid email address. Please check format.';
-    if (!formData.password) fe.password = 'Password is a required field.';
-    else if (!strongPwd) fe.password = 'Min 8 characters needed (1 upper, 1 lower, 1 number & 1 special character).';
-    if (!formData.confirmPassword) fe.confirmPassword = 'Please confirm password.';
-    else if (formData.confirmPassword !== formData.password) fe.confirmPassword = 'Passwords do not match.';
-    setFieldErrors(fe);
-    return Object.keys(fe).length === 0;
-  };
+const validate = () => {
+  const fe = {};
+  const emailOk = /^\S+@\S+\.\S+$/.test(formData.email);
+  const strongPwd =
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?#&])[A-Za-z\d@$!%*?#&]{8,}$/.test(formData.password);
+
+  if (!formData.firstName.trim()) fe.firstName = 'First name is required.';
+  if (!formData.lastName.trim()) fe.lastName = 'Last name is required.';
+  if (!formData.email) fe.email = 'Email is required.';
+  else if (!emailOk) fe.email = 'Invalid email format.';
+  if (!formData.password) fe.password = 'Password is required.';
+  else if (!strongPwd) fe.password = 'Min 8 characters, incl. upper, lower, number, special char.';
+  if (!formData.confirmPassword) fe.confirmPassword = 'Please confirm password.';
+  else if (formData.confirmPassword !== formData.password) fe.confirmPassword = 'Passwords do not match.';
+
+  setFieldErrors(fe);
+  return Object.keys(fe).length === 0;
+};
+
 
   const normalize = () => ({
-    name: formData.name.trim(),
+    firstName: formData.firstName.trim(),
+    lastName: formData.lastName.trim(),
     email: formData.email.trim().toLowerCase(),
     password: formData.password,
   });
+
 
   // 1.3
   const handleSubmit = async (e) => {
@@ -79,21 +85,38 @@ const Register = () => {
         {error && <div className="mb-3 p-2 bg-red-100 text-red-700 rounded">{error}</div>}
         {ok && <div className="mb-3 p-2 bg-green-100 text-green-800 rounded">{ok}</div>}
 
-        {/* Name */}
+        {/* First Name */}
         <label className="block mb-2">
-          <span className="block text-sm mb-1">Name</span>
+          <span className="block text-sm mb-1">First Name</span>
           <input
             type="text"
-            name="name"
-            autoComplete="name"
-            value={formData.name}
+            name="firstName"
+            autoComplete="given-name"
+            value={formData.firstName}
             onChange={onChange}
-            aria-invalid={!!fieldErrors.name}
-            aria-describedby={fieldErrors.name ? 'name-err' : undefined}
-            className={`w-full p-2 border rounded ${fieldErrors.name ? 'border-red-500' : ''}`}
-            placeholder="Alex Joe"
+            aria-invalid={!!fieldErrors.firstName}
+            aria-describedby={fieldErrors.firstName ? 'fname-err' : undefined}
+            className={`w-full p-2 border rounded ${fieldErrors.firstName ? 'border-red-500' : ''}`}
+            placeholder="Alex"
           />
-          {fieldErrors.name && <p id="name-err" className="text-red-600 text-sm mt-1">{fieldErrors.name}</p>}
+          {fieldErrors.firstName && <p id="fname-err" className="text-red-600 text-sm mt-1">{fieldErrors.firstName}</p>}
+        </label>
+
+        {/* Last Name */}
+        <label className="block mb-2">
+          <span className="block text-sm mb-1">Last Name</span>
+          <input
+            type="text"
+            name="lastName"
+            autoComplete="family-name"
+            value={formData.lastName}
+            onChange={onChange}
+            aria-invalid={!!fieldErrors.lastName}
+            aria-describedby={fieldErrors.lastName ? 'lname-err' : undefined}
+            className={`w-full p-2 border rounded ${fieldErrors.lastName ? 'border-red-500' : ''}`}
+            placeholder="Smith"
+          />
+          {fieldErrors.lastName && <p id="lname-err" className="text-red-600 text-sm mt-1">{fieldErrors.lastName}</p>}
         </label>
 
         {/* Email */}

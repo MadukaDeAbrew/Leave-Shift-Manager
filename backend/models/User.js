@@ -29,7 +29,7 @@ const userSchema = new mongoose.Schema(
       enum: ["Full Time", "Part Time", "Casual", null], 
       default: null 
     },
-    jobRole: { type: String, trim: true }, // designation
+    //jobRole: { type: String, trim: true }, // designation added by Maduka. But for making it simple and effiecied we will have enums created as roleInWork
     joinedDate: { type: Date },
     salaryPerHour: { type: Number },
 
@@ -53,9 +53,9 @@ const userSchema = new mongoose.Schema(
        index: true
     },*/
   
-  roleInWork: {
+  jobRole: {
     type: String,
-    enum: ['Cashier','Waiter','Receptionist','Others'], 
+    enum: ['Cashier','Waiter','Receptionist', 'Barista', 'Kitechen Hand', 'Others'], 
     default: 'Others',
    },
   dob: { type: Date },
