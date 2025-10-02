@@ -2,7 +2,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect } from "react";
 import { useAuth, AuthProvider } from "./context/AuthContext";
-import ShiftsPage from './pages/ShiftsPage.jsx';
 
 
 import Navbar from "./components/Navbar";
