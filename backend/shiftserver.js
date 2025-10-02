@@ -1,35 +1,38 @@
 const Shift = require('./models/Shift');                 
 const { isValidSlot } = require('./config/slot'); 
+//const shiftRoutes = require('./routes/shiftRoutes');
 
 //ShfitService
 
 class ShiftService {
   async list({from, to, scope, viewerId, userId,status}){
     const q = {};
-    if (from && to)q.date = {$gte:from, $lte:to}; //>= and <= date
+    if (from && to)q.shiftDate = {$gte:from, $lte:to}; //>= and <= date
     if (status) q.status = status;
 
     if (scope === 'me'){
         q.assignedTo = viewerId;
     }
-     else if (roleInWork) {                       // manager filter by roles
-        q.roleInWork = roleInWork;       
+     else if (scope === 'user' && userId) {                       
+        q.assignedTo = userId;       
   }
-    return Shift.find(q).sort({ date: 1, startTime: 1 }); 
+    return Shift.find(q).sort({ shiftDate: 1, startTime: 1 }).populate('assignedTo', 'name email');
+
 }  
 
 //unassigned
 async listUnassigned({ from, to }) {
     const q = { status: 'unassigned' }; 
     if (from && to) q.date = { $gte: from, $lte: to }; 
-    return Shift.find(q).sort({ date: 1, startTime: 1 });
+    return Shift.find(q).sort({ shiftDate: 1, startTime: 1 });
 }
 
 //manager create new shifts
-async create({ date, slotKey,roleInWork, createdBy }) {
+async create({ date, slotKey,roleInwork, createdBy }) {
   const slot = slots.byKey.get(slotKey);
   if (!slot) throw new Error('no time valids');      
-  const { start, end } = slot;                  
+  const { start, end } = slot;   
+
   return Shift.create({
     date, startTime: start, endTime: end, slotKey,
     roleInWork, createdBy, assignedTo: [], status: 'unassigned'

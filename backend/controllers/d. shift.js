@@ -154,7 +154,7 @@ const addShift = async (req, res) => {
       shiftDate: date,
       startTime,
       endTime,
-      role: role || '',
+      roleInwork: roleInwork || '',
       status: 'Scheduled',
     });
 

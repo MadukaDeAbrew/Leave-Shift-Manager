@@ -226,17 +226,25 @@ export default function EmployeesPage() {
               />
             </label>
 
+            {/* Job Role updated to view as a dropdown */}
             <label className="block mb-2">
               <span className="text-sm">Job Role</span>
-              <input
-                type="text"
+              <select
                 name="jobRole"
-                value={form.jobRole || ""}
+                value={form.jobRole || "Others"}
                 onChange={onChange}
                 className="w-full p-2 border rounded"
-              />
+              >
+                <option value="Cashier">Cashier</option>
+                <option value="Waiter">Waiter</option>
+                <option value="Receptionist">Receptionist</option>
+                <option value="Barista">Barista</option>
+                <option value="Kitechen Hand">Kitechen Hand</option>
+                <option value="Others">Others</option>
+              </select>
             </label>
 
+            {/* Employment Type updated to view as a dropdown */}
             <label className="block mb-2">
               <span className="text-sm">Employment Type</span>
               <select
@@ -245,13 +253,12 @@ export default function EmployeesPage() {
                 onChange={onChange}
                 className="w-full p-2 border rounded"
               >
-                <option>Full Time</option>
-                <option>Part Time</option>
-                <option>Casual</option>
-                <option>Contract</option>
+                <option value="Full Time">Full Time</option>
+                <option value="Part Time">Part Time</option>
+                <option value="Casual">Casual</option>
+                <option value="Contract">Contract</option>
               </select>
             </label>
-
             <label className="block mb-2">
               <span className="text-sm">Joined Date</span>
               <input
