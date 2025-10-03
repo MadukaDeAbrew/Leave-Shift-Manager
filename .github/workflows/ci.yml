@@ -3,28 +3,29 @@ name: Backend CI
 on:
   push:
     branches:
-      - main
-  workflow_dispatch: {}
+      - main   # Trigger CI/CD on pushes to main branch
+  workflow_dispatch: {}   # Allow manual trigger from GitHub UI
 
 jobs:
   test:
-    name: Run Tests
-    runs-on: self-hosted
-    environment: MONGO_URI   #Needed as secrets are stored under Environment
-
+    name: Run Tests and Deploy
+    runs-on: self-hosted   # Using EC2 GitHub runner
     strategy:
       matrix:
-        node-version: [22]
+        node-version: [22]   # Node.js version
 
     steps:
+    # 1. Checkout repo
     - name: Checkout Code
       uses: actions/checkout@v3
 
+    # 2. Setup Node.js
     - name: Setup Node.js
       uses: actions/setup-node@v3
       with:
         node-version: ${{ matrix.node-version }}
 
+    # 3. Print secrets (sanity check – values are masked)
     - name: Print Env Secret
       env:
         MONGO_URI: ${{ secrets.MONGO_URI }}
@@ -35,42 +36,39 @@ jobs:
         echo "Secret 2 is: $JWT_SECRET"
         echo "Secret 3 is: $PORT"
 
-    - run: pm2 stop all || true   # ✅ safer
+    # 4. Stop PM2 processes (safe)
+    - run: pm2 stop all || true
 
+    # 5. Install backend deps
     - name: Install Backend Dependencies
       working-directory: ./backend
-      run: |
-        npm install --global yarn
-        yarn --version
-        yarn install
+      run: yarn install --frozen-lockfile
 
-    - name: Install Frontend Dependencies
+    # 6. Install frontend deps + build
+    - name: Install Frontend Dependencies & Build
       working-directory: ./frontend
       run: |
-        df -h
+        df -h   # print disk usage
         sudo rm -rf ./build
-        yarn install
+        yarn install --frozen-lockfile
+        yarn run build
 
-    - name: Build Frontend
-      working-directory: ./frontend
-      env:
-        CI: "false"
-      run: yarn run build
-
+    # 7. Run backend tests
     - name: Run Backend Tests
+      working-directory: ./backend
       env:
         MONGO_URI: ${{ secrets.MONGO_URI }}
         JWT_SECRET: ${{ secrets.JWT_SECRET }}
         PORT: ${{ secrets.PORT }}
-      working-directory: ./backend
-      run: npm test
+      run: yarn test
 
-    - run: npm ci
-
-    - run: |
+    # 8. Create .env file for deployment
+    - name: Setup .env for backend
+      run: |
         cd ./backend
         touch .env
         echo "${{ secrets.PROD }}" > .env
 
+    # 9. Restart app with PM2
     - run: pm2 start all
     - run: pm2 restart all
