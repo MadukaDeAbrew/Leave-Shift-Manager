@@ -3,16 +3,19 @@ name: Backend CI
 on:
   push:
     branches:
-      - main   # Trigger CI/CD on pushes to main branch
-  workflow_dispatch: {}   # Allow manual trigger from GitHub UI
+      - main  # Trigger CI on pushes to the main branch
+  workflow_dispatch: {} # Allow manual trigger from GitHub UI
 
 jobs:
   test:
-    name: Run Tests and Deploy
-    runs-on: self-hosted   # Using EC2 GitHub runner
+    name: Run Tests
+    runs-on: self-hosted
+
     strategy:
       matrix:
-        node-version: [22]   # Node.js version
+        node-version: [22] # Node.js version
+
+    environment: MONGO_URI
 
     steps:
     # 1. Checkout repo
@@ -25,50 +28,55 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
 
-    # 3. Print secrets (sanity check – values are masked)
+    # 3. Print secrets (sanity check, masked in logs)
     - name: Print Env Secret
       env:
         MONGO_URI: ${{ secrets.MONGO_URI }}
         JWT_SECRET: ${{ secrets.JWT_SECRET }}
         PORT: ${{ secrets.PORT }}
-      run: |
+      run: | 
         echo "Secret 1 is: $MONGO_URI"
         echo "Secret 2 is: $JWT_SECRET"
         echo "Secret 3 is: $PORT"
-
-    # 4. Stop PM2 processes (safe)
+      
+    # 4. Stop PM2 processes (avoid crash on redeploy)
     - run: pm2 stop all || true
 
-    # 5. Install backend deps
+    # 5. Install dependencies for backend
     - name: Install Backend Dependencies
       working-directory: ./backend
-      run: yarn install --frozen-lockfile
-
-    # 6. Install frontend deps + build
-    - name: Install Frontend Dependencies & Build
+      run: | 
+        npm install --global yarn
+        yarn --version
+        yarn install --frozen-lockfile
+      
+    # 6. Install dependencies for frontend & build
+    - name: Install Frontend Dependencies
       working-directory: ./frontend
       run: |
-        df -h   # print disk usage
+        df -h
         sudo rm -rf ./build
         yarn install --frozen-lockfile
         yarn run build
 
     # 7. Run backend tests
     - name: Run Backend Tests
-      working-directory: ./backend
       env:
         MONGO_URI: ${{ secrets.MONGO_URI }}
         JWT_SECRET: ${{ secrets.JWT_SECRET }}
         PORT: ${{ secrets.PORT }}
-      run: yarn test
+      working-directory: ./backend
+      run: npm test
 
-    # 8. Create .env file for deployment
-    - name: Setup .env for backend
-      run: |
+    # 8. Ensure clean install for prod deploy
+    - run: npm ci
+
+    # 9. Create .env file for backend
+    - run: | 
         cd ./backend
         touch .env
         echo "${{ secrets.PROD }}" > .env
 
-    # 9. Restart app with PM2
+    # 10. Restart app with PM2
     - run: pm2 start all
     - run: pm2 restart all
