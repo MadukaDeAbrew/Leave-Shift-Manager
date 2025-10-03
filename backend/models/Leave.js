@@ -9,6 +9,7 @@ const LeaveSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    userName:{type:String, default:'-'},
     startDate: { type: Date, required: true },
     endDate:   { type: Date, required: true },
     leaveType: {
@@ -20,14 +21,12 @@ const LeaveSchema = new mongoose.Schema(
     reason: { type: String, trim: true, maxlength: 500 },
     status: {
       type: String,
-      enum: ['Pending', 'Approved', 'Rejected', 'Cancelled'],
+      enum: ['Pending', 'Approved', 'Rejected'],
       default: 'Pending',
       index: true,
     },
     isAcceptSwap:{type:Boolean,required:true, default: false},
-    preference1:{type:String},
-    preference2:{type:String},
-    preference3:{type:String}
+    preferences:[{type:String}]
   },
   { timestamps: true }
 );

@@ -18,6 +18,7 @@ app.use("/api/leaves", require("./routes/leaveRoutes"));
 app.use("/api/shifts", require("./routes/shiftRoutes"));
 app.use("/api/swaps", require("./routes/swapRoutes"));
 app.use("/api/employees", require("./routes/employeeRoutes"));
+app.use("/api/admin/requests", require("./routes/requestRoutes"));
 
 // === Health Check ===
 app.get("/api/health", (req, res) => {
