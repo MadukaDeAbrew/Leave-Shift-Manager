@@ -3,31 +3,27 @@ name: Backend CI
 on:
   push:
     branches:
-      - main   # Trigger CI/CD on pushes to main branch
-  workflow_dispatch: {}   # Allow manual trigger from GitHub UI
+      - main
+  workflow_dispatch: {}
 
 jobs:
   test:
     name: Run Tests
     runs-on: self-hosted
-    environment: MONGO_URI   # Secrets are stored under Environment
 
     strategy:
       matrix:
         node-version: [22]
 
     steps:
-    # 1. Checkout repo
     - name: Checkout Code
       uses: actions/checkout@v3
 
-    # 2. Setup Node.js
     - name: Setup Node.js
       uses: actions/setup-node@v3
       with:
         node-version: ${{ matrix.node-version }}
 
-    # 3. Print secrets (sanity check – values are masked in logs)
     - name: Print Env Secret
       env:
         MONGO_URI: ${{ secrets.MONGO_URI }}
@@ -38,29 +34,23 @@ jobs:
         echo "Secret 2 is: $JWT_SECRET"
         echo "Secret 3 is: $PORT"
 
-    # 4. Stop PM2 processes (safe stop)
     - run: pm2 stop all || true
 
-    # 5. Install backend deps
     - name: Install Backend Dependencies
       working-directory: ./backend
       run: |
         npm install --global yarn
-        yarn --version
         yarn install
 
-    # 6. Install frontend deps & build (ignore ESLint warnings)
-    - name: Install Frontend Dependencies & Build
+    - name: Install Frontend Dependencies
       working-directory: ./frontend
       env:
-        CI: false   # 👈 prevents React from failing on warnings
+        CI: false
       run: |
-        df -h
         sudo rm -rf ./build
         yarn install
         yarn run build
 
-    # 7. Run backend tests
     - name: Run Backend Tests
       env:
         MONGO_URI: ${{ secrets.MONGO_URI }}
@@ -69,24 +59,20 @@ jobs:
       working-directory: ./backend
       run: npm test
 
-    # 8. Clean install for safety
     - run: npm ci
 
-    # 9. Create .env file for deployment
     - name: Setup .env for backend
       run: |
         cd ./backend
-        touch .env
-        echo "${{ secrets.PROD }}" > .env
+        echo "MONGO_URI=${{ secrets.MONGO_URI }}" > .env
+        echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
+        echo "PORT=${{ secrets.PORT }}" >> .env
 
-    # 10. Start backend with PM2
     - name: Start Backend
-      run: pm2 start backend/server.js --name backend || pm2 restart backend
+      run: pm2 start backend/server.js --name backend
 
-    # 11. Serve frontend build with PM2
     - name: Start Frontend
-      run: pm2 serve frontend/build 3000 --name frontend --spa || pm2 restart frontend
+      run: pm2 serve frontend/build 3000 --name frontend --spa
 
-    # 12. Save PM2 process list so next deploys can reuse
     - name: Save PM2 Processes
       run: pm2 save
