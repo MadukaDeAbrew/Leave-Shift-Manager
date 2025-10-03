@@ -1,5 +1,6 @@
 // backend/controllers/leaveController.js
 const Leave = require('../models/Leave');
+const User = require('../models/User');
 
 /**
  * GET /api/leaves
@@ -9,7 +10,7 @@ const Leave = require('../models/Leave');
  */
 const getLeaves = async (req, res) => {
   try {
-    const isAdmin = req.user?.systemRole === 'admin';
+    //const isAdmin = req.user?.systemRole === 'admin';
 
     // pagination params
     const page  = Math.max(parseInt(req.query.page || '1', 10), 1);
@@ -17,8 +18,10 @@ const getLeaves = async (req, res) => {
     const skip  = (page - 1) * limit;
 
     // base filter: admin sees all, user sees own
-    const filter = isAdmin ? {} : { userId: req.user.id };
+    //const filter = isAdmin ? {} : { userId: req.user.id };
+    console.log("req.user:", req.user);
 
+    const filter = {userId: req.user.id};
     // optional status filter (exact match: Pending/Approved/Rejected/Cancelled)
     if (req.query.status) {
       filter.status = req.query.status;
@@ -29,7 +32,7 @@ const getLeaves = async (req, res) => {
       .sort({ startDate: -1 })
       .skip(skip)
       .limit(limit);
-    if (isAdmin) q.populate('userId', 'name email');
+    //if (isAdmin) q.populate('userId', 'name email');
 
     const [leaves, total] = await Promise.all([
       q.exec(),
@@ -61,7 +64,13 @@ const createLeave = async (req, res) => {
     const userId = req.user?.id || req.body.userId;
     if (!userId) return res.status(401).json({ message: 'Unauthenticated' });
 
-    const { startDate, endDate, reason, leaveType } = req.body;
+    const userDoc = await User.findById(userId);
+    if (!userDoc) return res.status(404).json({ message: "User not found" });
+    const userName = `${userDoc.firstName || ''} ${userDoc.lastName || ''}`.trim();
+   
+    //console.log("req.user.fullName:",req.user.fullName);
+    //console.log("userName:",userName);
+    const { startDate, endDate, reason, leaveType,isAcceptSwap,preferences } = req.body;
     if (!startDate) return res.status(400).json({ message: 'startDate is required' });
     if (!endDate)   return res.status(400).json({ message: 'endDate is required' });
 
@@ -79,10 +88,13 @@ const createLeave = async (req, res) => {
 
     const payload = {
       userId,
+      userName,
       startDate: sd,
       endDate: ed,
       leaveType: leaveType || 'Annual',
       reason: reasonNormalized,
+      isAcceptSwap:isAcceptSwap,
+      preferences:preferences,
     };
 
     const created = await Leave.create(payload);
@@ -194,16 +206,15 @@ const deleteLeave = async (req, res) => {
     const leave = await Leave.findById(id);
     if (!leave) return res.status(404).json({ message: 'Leave not found' });
 
-    const isOwner = leave.userId.toString() === req.user.id;
-    const isAdmin = req.user.role === 'admin';
+    //const isOwner = leave.userId === req.user._id;
+    //const isAdmin = req.user.systemRole === 'admin';
 
-    if (!isAdmin) {
+    /*if (!isAdmin) {
       if (!isOwner) {
         return res.status(403).json({ message: 'Not authorized' });
-      }
-      if (leave.status !== 'Pending') {
-        return res.status(403).json({ message: 'Only Pending leaves can be deleted by user' });
-      }
+      }*/
+    if (leave.status !== 'Pending') {
+      return res.status(403).json({ message: 'Only Pending leaves can be deleted by user' });
     }
 
     await leave.deleteOne();
