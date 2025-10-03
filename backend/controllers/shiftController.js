@@ -1,4 +1,5 @@
 const ShiftService = require('../shiftserver');
+const {SingleUser, UserGroup} = require('../shiftserver');
 
 
 //get shift table and all user can access, all or self depend on scope.
@@ -105,7 +106,14 @@ exports.assignShift = async (req, res) => {
 
     const { id } = req.params;
     const { userIds = [] } = req.body;
-    const doc = await ShiftService.assign(id, userIds);
+    let assignTo;
+    if (userId.length === 1){
+      assignTo = new SingleUser(userIds[0]);
+    }
+    else{
+      assignTo = new UserGroup(userIds.map(uid => new SingleUser(uid)));
+    }
+    const doc = await ShiftService.assign(id, assignTo);
     res.json(doc);
   } catch (err) {
     res.status(400).json({ message: err.message || 'Assign failed' });
