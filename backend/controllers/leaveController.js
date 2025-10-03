@@ -2,6 +2,33 @@
 const Leave = require('../models/Leave');
 const User = require('../models/User');
 
+function authorizeAdmin(handler) {
+  return async function(req, res) {
+    if (req.user.systemRole !== 'admin') {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    return handler(req, res);
+  };
+}
+
+function validateLeaveDates(handler) {
+  return async function(req, res) {
+    const { startDate, endDate } = req.body;
+    if (!startDate || !endDate || new Date(startDate) > new Date(endDate)) {
+      return res.status(400).json({ message: 'Invalid date range' });
+    }
+    return handler(req, res);
+  };
+}
+
+const approveLeaveDecorated = authorizeAdmin(validateLeaveDates(async (req, res) => {
+  const leave = await Leave.findById(req.params.id);
+  leave.status = 'Approved';
+  await leave.save();
+  res.json(leave);
+}));
+
+
 /**
  * GET /api/leaves
  * - Admin: all leaves (populated user)
@@ -304,6 +331,6 @@ module.exports = {
   deleteLeave,
   approveLeave,
   updateLeaveStatus,
- rejectLeave,
-  
+  rejectLeave,
+  approveLeaveDecorated,
 };

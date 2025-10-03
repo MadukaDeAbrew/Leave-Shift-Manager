@@ -2,6 +2,28 @@ const Shift = require('./models/Shift');
 const { isValidSlot } = require('./config/slot'); 
 //const shiftRoutes = require('./routes/shiftRoutes');
 
+
+class AssigntoComponent{
+  getUserIds(){
+    throw new Error("getUserIds() must be implemented");
+  }
+}
+
+class SingleUser extends AssigntoComponent{
+  constructor(userId){
+    super();this.userId=userId;
+  }
+  getUserIds(){
+    return [this.userId];
+  }
+}
+
+class UserGroup extends AssigntoComponent{
+  constructor(users = []){super();this.users=users;}
+  add(userComponent){this.users.push(userComponent);}
+  getUserIds(){return this.users.flatMap(u=>u.getUserIds());}
+}
+
 //ShfitService
 
 class ShiftService {
@@ -45,12 +67,12 @@ async remove(_id){
   return { ok: true }; 
 }
 
-
-async assign(_id, userIds){
+async assign(_id, assigntoComponent){
   //all user incliuding manager and empolyee can update status
   const s = await Shift.findById(_id);
   if (!s) throw new Error('Shift not found');
 
+  const userIds = assigntoComponent.getUserIds();
   s.assignedTo = userIds;
 
   s.status = userIds.length === 0 
