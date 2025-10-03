@@ -117,4 +117,4 @@ General user 2:
 username: user2@gmail.com
 password: User2@lsm
 
-Postman collection: https://maduka-deabrew-7451040.postman.co/workspace/IFN636-Assignment-2-%3A-Group-10~9e075a34-661e-4d6d-a799-abbb54885c99/collection/47516803-c21991e5-3a2b-4ff3-8d70-1c2ece1dd367?action=share&creator=47516803&active-environment=47516803-2d865c20-0b60-4bd7-8d35-fba48252ff77
+Postman collection: https://maduka-deabrew-7451040.postman.co/workspace/IFN636-Assignment-2-%3A-Group-10~9e075a34-661e-4d6d-a799-abbb54885c99/collection/47516803-246342a6-dfee-457c-8bee-22e34a352186?action=share&source=copy-link&creator=47516803
