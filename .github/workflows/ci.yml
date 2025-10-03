@@ -4,12 +4,13 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 jobs:
   test:
     name: Run Tests
     runs-on: self-hosted
+    environment: MONGO_URI
 
     strategy:
       matrix:
@@ -64,15 +65,11 @@ jobs:
     - name: Setup .env for backend
       run: |
         cd ./backend
-        echo "MONGO_URI=${{ secrets.MONGO_URI }}" > .env
+        touch .env
+        echo "MONGO_URI=${{ secrets.MONGO_URI }}" >> .env
         echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
         echo "PORT=${{ secrets.PORT }}" >> .env
 
-    - name: Start Backend
-      run: pm2 start backend/server.js --name backend
-
-    - name: Start Frontend
-      run: pm2 serve frontend/build 3000 --name frontend --spa
-
-    - name: Save PM2 Processes
-      run: pm2 save
+    - run: pm2 start backend/server.js --name backend
+    - run: pm2 serve frontend/build 3000 --name frontend --spa
+    - run: pm2 save
