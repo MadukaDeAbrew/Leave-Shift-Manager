@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import axiosInstance from "../axiosConfig";
 
 export default function MyProfile() {
-  const { user, token } = useAuth();
+  const { token } = useAuth();
 
   // Encapsulation: keep profile state private to this component 
   const [profile, setProfile] = useState(null);
