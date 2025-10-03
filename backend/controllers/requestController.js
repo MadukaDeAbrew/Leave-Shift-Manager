@@ -1,6 +1,7 @@
 // backend/controllers/leaveController.js
 const Leave = require('../models/Leave');
-const Shift = require('../models/Shift');
+const RequestFacade = require('../facade/facade')
+
 
 /**
  * GET /api/request
@@ -55,20 +56,23 @@ const getLeaves = async (req, res) => {
  * Body: { startDate, endDate, reason?, leaveType? }
  */
 
-/**
- * PUT /api/leaves/:id
- * - Owner or Admin can update details
- * - Optional: Only Pending can be edited by non-admin (uncomment to enforce)
- */
-// PUT /api/leaves/:id
-// - Owner or Admin can update details
-// - Non-admins may be limited to editing only Pending leaves (toggle via flag)
 
 /**
  * PATCH /api/leaves/:id/approve  (Admin)
  * Sets status to "Approved"
  */
+// controllers/leaveController.js
 const approveRequest = async (req, res) => {
+  try {
+    const updated = await RequestService.approveRequest(req.params.id);
+    res.json(updated);
+  } catch (err) {
+    console.error('approveLeave error:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/*const approveRequest = async (req, res) => {
   try {
     const { id } = req.params;
     const leave = await Leave.findById(id);
@@ -79,12 +83,12 @@ const approveRequest = async (req, res) => {
 
     // delete all the shift between the leave time.
     // only can be use after modify shift time information format
-    /*await Shift.deleteMany(
+    await Shift.deleteMany(
       {
         userId:leave.userId,
         date:{$gte:leave.startDate, $lte:leave.endDate}
       }
-    )*/
+    )
 
     const leaveStart = new Date(leave.startDate); // leave start
     const leaveEnd   = new Date(leave.endDate);   // leave end
@@ -109,7 +113,7 @@ const approveRequest = async (req, res) => {
       await Shift.deleteMany({_id:{$in:toDelete.map(s => s._id)}});
     }
     // delete overlap shift
-    /*const shifts = await Shift.find({ userId: leave.userId });
+    const shifts = await Shift.find({ userId: leave.userId });
 
     for (const shift of shifts) {
       const shiftStart = new Date(`${shift.shiftDate}T${shift.startTime}:00`);
@@ -119,20 +123,33 @@ const approveRequest = async (req, res) => {
       if (shiftStart < leaveEnd && shiftEnd > leaveStart) {
         await Shift.deleteOne({ _id: shift._id });
       }
-    }*/
+    }
 
     res.json(updated);
   } catch (err) {
     console.error('approveLeave error:', err);
     res.status(500).json({ message: 'Failed to approve leave.' });
   }
-};
+};*/
 
 /**
  * PATCH /api/leaves/:id/reject  (Admin)
  * Sets status to "Rejected"
  */
 const rejectRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updated = await RequestFacade.rejectRequest(id);
+    res.json(updated);
+  } catch (err) {
+    console.error("rejectLeave error:", err);
+    if (err.message === "Leave not found") {
+      return res.status(404).json({ message: err.message });
+    }
+    res.status(500).json({ message: "Failed to reject leave." });
+  }
+};
+/*const rejectRequest = async (req, res) => {
   try {
     const { id } = req.params;
     const leave = await Leave.findById(id);
@@ -145,46 +162,11 @@ const rejectRequest = async (req, res) => {
     console.error('rejectLeave error:', err);
     res.status(500).json({ message: 'Failed to reject leave.' });
   }
-};
+};*/
 
-// PATCH /api/leaves/:id/status  (Admin)
-// Body: { status: 'Approved' | 'Rejected', note?: string }
-const updateLeaveStatus = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status, note } = req.body;
-
-    // only these statuses may be set via this endpoint
-    const ALLOWED = new Set(['Approved', 'Rejected']);
-    if (!ALLOWED.has(status)) {
-      return res.status(400).json({ message: 'Invalid status. Use Approved or Rejected.' });
-    }
-
-    const leave = await Leave.findById(id);
-    if (!leave) return res.status(404).json({ message: 'Leave not found' });
-
-    // Optional: block changing already-finalized decisions
-    if (leave.status !== 'Pending') {
-      return res.status(400).json({ message: 'Only Pending leaves can be decided.' });
-    }
-
-    leave.status = status;
-    leave.decidedBy = req.user.id;   // admin making the decision
-    leave.decidedAt = new Date();
-    if (typeof note === 'string') leave.decisionNote = note.trim();
-
-    const saved = await leave.save();
-    return res.json(saved);
-  } catch (err) {
-    console.error('updateLeaveStatus error:', err);
-    return res.status(500).json({ message: 'Failed to update leave status.' });
-  }
-};
 
 module.exports = {
   getLeaves,
   approveRequest,
-  updateLeaveStatus,
   rejectRequest,
-  
 };

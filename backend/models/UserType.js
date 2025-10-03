@@ -21,10 +21,7 @@ class BaseUser {
 }
 
 class AdminUser extends BaseUser {
-  constructor(userDoc) {
-    super(userDoc);
-    this.type = 'Admin';
-  }
+  constructor(userDoc) {super(userDoc);this.type = 'Admin';}
 
   canManageEmployees() {
     return true;
@@ -32,17 +29,14 @@ class AdminUser extends BaseUser {
 }
 
 class EmployeeUser extends BaseUser {
-  constructor(userDoc) {
-    super(userDoc);
-    this.type = 'Employee';
-  }
+  constructor(userDoc) {super(userDoc);this.type = 'Employee';}
 
   canManageEmployees() {
     return false;
   }
 }
 
-// Factory function
+// Factory functiona
 function wrapUser(userDoc) {
   if (!userDoc) return null;
   if (userDoc.systemRole === 'admin') {
