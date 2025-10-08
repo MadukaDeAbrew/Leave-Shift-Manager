@@ -1,5 +1,5 @@
 
-import {useMemo, useState,useEffect} from 'react';
+import {useMemo, useState,useEffect,useCallback} from 'react';
 import axios from '../axiosConfig';
 import { useAuth } from '../context/AuthContext';
 
@@ -28,10 +28,11 @@ function AddShiftForm({onCreated}) {
     try {
       console.log({ shiftDate, slotKey, jobRole });
 
-      const res = await axios.post('/api/shifts', {
-        shiftDate,          
-        slotKey,         
+    const res = await axios.post('/api/shifts', {
+        shiftDate,                 
+        slotKey,
         jobRole,
+      
       });
       // if sucessful
       setMessage(`Shift created: ${res.data.shiftDate} ${res.data.startTime}-${res.data.endTime}`);
@@ -96,20 +97,22 @@ function AddShiftForm({onCreated}) {
         </button>
       </form>
 
-      {"remider!"}
       {message && <p className="mt-4 text-sm">{message}</p>}
     </div>
   );
 };
 
 //Table//
-function ShiftTable({ reloadFlag, scope = 'all' }) {
+/*function ShiftTable({ reloadFlag, scope = 'self' }) {
   const [shifts, setShifts] = useState([]);
   const [msg, setMsg] = useState('');
 
   const fetchShifts = async () => {
     try {
-      const res = await axios.get('/api/shifts', { params: { scope } }); 
+      //const from = weekStart;
+      //const to = weekEnd;
+     // const res = await axios.get('/api/shifts', { params: { scope,from,to,userId,status,jobRole } }); 
+    const res = await axios.get('/api/shifts', { params: { scope } }); 
       setShifts(res.data);
     } catch (err) {
       setMsg(`Failed to load shifts: ${err.response?.data?.message || err.message}`);
@@ -119,16 +122,82 @@ function ShiftTable({ reloadFlag, scope = 'all' }) {
   
   useEffect(() => {
     fetchShifts();
-  }, [reloadFlag]);
+  }, [reloadFlag]);*/
+
+  function ShiftTable({ shifts = [], reload }) {
+    const [assignOpen, setAssignOpen] = useState(false);
+    const [selectedShift, setSelectedShift] = useState(null);
+    const [users, setUsers] = useState([]);
+    const [loadingUsers, setLoadingUsers] = useState(false);
+    const [userQuery, setUserQuery] = useState('');  // 搜索关键字
+    const [selectedIds, setSelectedIds] = useState(new Set()); // 选中的用户
+    const multiSelect = true; // 如果要多选改为 true
+
+    const openAssignPopup =async (shift) => {
+      setSelectedShift(shift);
+      setAssignOpen(true);
+      setUserQuery('');
+      setSelectedIds(new Set());
+
+      try {
+      setLoadingUsers(true);
+      // 假设后端有 GET /api/users?active=true&q=keyword
+      const { data } = await axios.get('/api/employees');
+      setUsers(Array.isArray(data) ? data : (data?.data || []));
+    } catch (e) {
+      console.error('fetch users failed:', e);
+      setUsers([]);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+    const closeAssignPopup = () => {
+      setAssignOpen(false);
+      setSelectedShift(null);
+      setUsers([]);
+      setSelectedIds(new Set());
+      setUserQuery('');
+    };
+
+    // 选择逻辑（单选/多选）
+  const togglePick = (id) => {
+    if (multiSelect) {
+      const next = new Set(selectedIds);
+      next.has(id) ? next.delete(id) : next.add(id);
+      setSelectedIds(next);
+    } else {
+      setSelectedIds(new Set([id]));
+    }
+  };
+
+    const onAssign = async (shiftId, pickedIds) => {
+      const payload = { userIds: Array.from(pickedIds || []) }; // 多选
+      console.log('[onAssign] url=', `/api/shifts/${shiftId}/assign`, 'payload=', payload);
+      const res =  await axios.post(`/api/shifts/${shiftId}/assign`, payload);
+      console.log('[onAssign] ok:', res.data);
+      reload?.();
+      closeAssignPopup();
+    };
+    
+    const onUnassign = async (shiftId) => {
+      await axios.post(`/api/shifts/${shiftId}/assign`, { userIds: [] });
+      reload?.();
+      closeAssignPopup();
+    };
+  /*const onCreateEmpty = async (slotKey) => {
+    const role = filters.jobRole || prompt('Role') || '';
+    await axios.post('/api/shifts', { slotKey:slotKey, jobRole:role });
+    setReloadFlag(v => v + 1);
+  };*/
 
   return (
     <div className="p-6 bg-white shadow rounded-lg">
       <h2 className="text-lg font-bold mb-4">Shift Table</h2>
 
-      {"remider!"}
-      {msg && <p className="mb-4 text-sm text-red-600">{msg}</p>}
+     
+      {/*msg && <p className="mb-4 text-sm text-red-600">{msg}</p>*/}
 
-      {"Table"}
+     
       <div className="overflow-x-auto">
         <table className="min-w-full border border-gray-200">
           <thead className="bg-gray-100">
@@ -143,19 +212,20 @@ function ShiftTable({ reloadFlag, scope = 'all' }) {
           <tbody>
             {shifts.map((s) => (
               <tr key={s._id} className="hover:bg-gray-50">
-                {"Date"}
                 <td className="px-4 py-2 border">{s.shiftDate}</td>
-                {"time solt"}
                 <td className="px-4 py-2 border">{s.startTime} - {s.endTime}</td>
-                {"role"}
                 <td className="px-4 py-2 border">{s.jobRole || '-'}</td>
-                {"assigned"}
                 <td className="px-4 py-2 border">
                   {s.assignedTo && s.assignedTo.length > 0
-                    ? s.assignedTo.join(', ')
-                    : 'Unassigned'}
+                    ?s.assignedTo.map(s => s.firstName).join(', ')
+                    : (<span
+                      className="text-blue-600 underline cursor-pointer hover:text-blue-800"
+                      onClick={() => openAssignPopup(s)}
+                    >
+                      Unassigned
+                    </span>
+                    )}
                 </td>
-                {"status"}
                 <td className="px-4 py-2 border">
                   <span
                     className={
@@ -179,24 +249,157 @@ function ShiftTable({ reloadFlag, scope = 'all' }) {
             )}
           </tbody>
         </table>
+        {assignOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={closeAssignPopup}
+        >
+          <div
+            className="bg-white rounded-xl shadow-lg p-6 w-[90%] max-w-md relative"
+            onClick={(e) => e.stopPropagation()} // 避免点击内容区域关闭
+          >
+            <h2 className="text-lg font-semibold mb-4">Assign Shift</h2>
+
+            {selectedShift && (
+              <>
+                <p>
+                  <strong>Date:</strong> {selectedShift.shiftDate}
+                </p>
+                <p>
+                  <strong>Time:</strong> {selectedShift.startTime} -{" "}
+                  {selectedShift.endTime}
+                </p>
+                <p>
+                  <strong>Role:</strong> {selectedShift.jobRole || "N/A"}
+                </p>
+
+ {/* 搜索框 */}
+      <div className="mb-3">
+        <input
+          className="w-full border rounded-lg px-3 py-2"
+          placeholder="Search name or email…"
+          value={userQuery}
+          onChange={(e) => setUserQuery(e.target.value)}
+        />
+      </div>
+
+      {/* 员工表格 */}
+      <div className="border rounded-lg overflow-hidden">
+        <table className="min-w-full">
+          <thead className="bg-gray-100 text-left">
+            <tr>
+              <th className="px-3 py-2 w-12">{multiSelect ? '✓' : ''}</th>
+              <th className="px-3 py-2">First Name</th>
+              <th className="px-3 py-2">Last Name</th>
+              <th className="px-3 py-2">Email</th>
+              <th className="px-3 py-2">Role</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loadingUsers ? (
+              <tr><td className="px-3 py-4 text-center" colSpan={4}>Loading…</td></tr>
+            ) : (
+              users
+                .filter(u => {
+                  const q = userQuery.trim().toLowerCase();
+                  if (!q) return true;
+                  return (u.firstName || '').toLowerCase().includes(q)
+                      ||(u.lastName || '').toLowerCase().includes(q)
+                      || (u.email || '').toLowerCase().includes(q)
+                      || (u.jobRole || '').toLowerCase().includes(q);
+                })
+                .map(u => {
+                  const checked = selectedIds.has(String(u._id));
+                  return (
+                    <tr key={u._id} className="hover:bg-gray-50">
+                      <td className="px-3 py-2">
+                        {(
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => togglePick(String(u._id))}
+                          />
+                        ) }
+                      </td>
+                      <td className="px-3 py-2">{u.firstName || '-'}</td>
+                      <td className="px-3 py-2">{u.lastName || '-'}</td>
+
+                      <td className="px-3 py-2">{u.email || '-'}</td>
+                      <td className="px-3 py-2">{u.jobRole || '-'}</td>
+                    </tr>
+                  );
+                })
+            )}
+            {!loadingUsers && users.length === 0 && (
+              <tr><td className="px-3 py-4 text-center text-gray-500" colSpan={4}>No users</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+
+                <input
+                  type="text"
+                  placeholder="Enter user ID"
+                  className="border p-2 w-full my-3"
+                  //value={userId}
+                  //onChange={(e) => setUserId(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && onAssign()}
+                />
+
+                <div className="flex justify-end gap-2 mt-4">
+                  <button
+                    className="px-4 py-2 border rounded hover:bg-gray-100"
+                    onClick={closeAssignPopup}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                    onClick={onUnassign}
+                  >
+                    Unassign
+                  </button>
+                  <button
+                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                    onClick={() => onAssign(selectedShift._id, Array.from(selectedIds))}
+                  >
+                    Assign
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
       </div>
     </div>
   );
 };
 
 // week component
+function fmtYMDLocal(d){
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
 function WeekGrid({ weekStart, slots, shifts, isAdmin, onAssign, onUnassign, onCreateEmpty }) {
+  
+  console.log("WeekGrid props:", weekStart);
+
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart); d.setDate(d.getDate() + i);
-    return d.toISOString().slice(0,10);
+     return fmtYMDLocal(d);
   });
 
   const map = new Map();
   for (const s of shifts) {
-    const d = s.shiftDate || s.shiftDate;
+    const d = s.shiftDate;
     map.set(`${d}|${s.slotKey}`, s);
   }
+
 
   return (
     <table className="min-w-full border border-gray-200">
@@ -218,7 +421,7 @@ function WeekGrid({ weekStart, slots, shifts, isAdmin, onAssign, onUnassign, onC
                 <td key={k} className={`align-top px-2 py-2 border ${empty ? 'bg-yellow-50' : ''}`}>
                   {empty ? (
                     isAdmin ? (
-                      <button className="text-sm underline" onClick={() => onCreateEmpty?.(d, slot.key)}>+ Create</button>
+                      <button className="text-sm underline" onClick={() => onCreateEmpty(d, slot.key)}></button>
                     ) : <em className="text-gray-400">NUll</em>
                   ) : (
                     <div className="flex flex-col gap-1">
@@ -270,7 +473,8 @@ export default function ShiftsPage() {
   const [reloadFlag, setReloadFlag] = useState(0);
 
   // 
-  const [anchorDate, setAnchorDate] = useState(() => new Date().toISOString().slice(0,10));
+ // const [anchorDate, setAnchorDate] = useState(() => new Date().toISOString().slice(0,10));
+ const [anchorDate, setAnchorDate] = useState(() => fmtYMDLocal(new Date()));
   const weekStart = useMemo(() => startOfWeek(anchorDate), [anchorDate]);
   const weekEnd = useMemo(() => addDays(weekStart, 6), [weekStart]);
 
@@ -279,42 +483,61 @@ export default function ShiftsPage() {
   const [msg, setMsg] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
 
-const load = async () => {
+const load = useCallback(async () => {
     try {
+       /*if (!weekStart || !weekEnd) {
+    console.warn('[load] skip: weekStart/weekEnd not ready', { weekStart, weekEnd });
+    return;
+  }*/
+      
       const params = {
         from: weekStart,
         to: weekEnd,
-        scope: isAdmin ? 'all' : 'me',               
+        scope: isAdmin ? 'all' : 'self',               
         ...(filters.jobRole && { jobRole: filters.jobRole }),
         ...(filters.slotKey && { slotKey: filters.slotKey }),
         ...(filters.status && { status: filters.status }),
       };
+
+      console.log('[GET /api/shifts] params =', params);
+
+
       const { data } = await axios.get('/api/shifts', { params });
+
+      console.log('[GET /api/shifts] result count =', Array.isArray(data) ? data.length : (data?.data?.length || 0));
+      console.table((Array.isArray(data) ? data : (data?.data || [])).slice(0,5)
+  .map(s => ({ date: s.shiftDate, slot: s.slotKey, time: `${s.startTime}-${s.endTime}`, role: s.jobRole, status: s.status })));
+
       setShifts(Array.isArray(data) ? data : (data?.data || []));
     } catch (err) {
       setMsg(err.response?.data?.message || err.message);
     }
-  };
 
+
+
+  },[weekStart,weekEnd, isAdmin, filters.jobRole,filters.slotKey,filters.status]);
+  
+/////
   useEffect(() => { 
+    /*if (weekStart && weekEnd) {
     load();
+     }*/load();
      /* eslint-disable-line */ }, 
-     [reloadFlag, weekStart, weekEnd, isAdmin, filters.systemRole, filters.slotKey, filters.status]);
-
-  const onAssign = async (shiftId, userId) => {
-    await axios.post(`/api/shifts/${shiftId}/assign`, { userIds: [userId] });
-    load();
-  };
-  const onUnassign = async (shiftId) => {
-    await axios.post(`/api/shifts/${shiftId}/assign`, { userIds: [] });
-    load();
-  };
-  const onCreateEmpty = async (slotKey) => {
-    const role = filters.jobRole || prompt('') || '';
-    await axios.post('/api/shifts', { slotKey, jobRole:filters.jobRole });
-    setReloadFlag(v => v + 1);
-  };
-
+     [reloadFlag, weekStart, weekEnd, isAdmin, filters.jobRole, filters.slotKey, filters.status]);
+    const onAssign = async (shiftId, userId) => {
+      await axios.post(`/api/shifts/${shiftId}/assign`, { userIds: [userId] });
+      load();
+    };
+    
+    const onUnassign = async (shiftId) => {
+      await axios.post(`/api/shifts/${shiftId}/assign`, { userIds: [] });
+      load();
+    };
+    const onCreateEmpty = async (slotKey) => {
+      const role = filters.jobRole || prompt('Role') || '';
+      await axios.post('/api/shifts', { slotKey:slotKey, jobRole:role });
+      setReloadFlag(v => v + 1);
+    };
   return (
     <div>
     <div className="max-w-6xl mx-auto p-6 space-y-6">
@@ -405,7 +628,12 @@ const load = async () => {
         onUnassign={onUnassign}
         onCreateEmpty={onCreateEmpty}
       />
-      <ShiftTable reloadFlag={reloadFlag} scope={isAdmin ? 'all' : 'me'} />
+      {/*<ShiftTable reloadFlag={reloadFlag} scope={isAdmin ? 'all' : 'self'} />*/}
+      <ShiftTable 
+      shifts={shifts}
+      reload={load}
+      />
+
 
     </div>
 

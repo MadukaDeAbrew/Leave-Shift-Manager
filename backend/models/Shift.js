@@ -7,14 +7,14 @@ const ShiftSchema = new mongoose.Schema(
   {
     // OPTIONAL assignee (null means "unassigned")
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-
+    slotKey:  { type: String}, //not in database
     shiftDate: { type: String, required: true },
     weekDay: {type: String},            // day of the shift ,raise weekday automatically
     startTime: { type: String, required: true },          // "HH:MM" 24h
     endTime:   { type: String, required: true },          // "HH:MM" 24h
     jobRole:      { type: String, default: '' },
 
-    assignedTo: [mongoose.Schema.Types.ObjectId],
+    assignedTo: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 
   //  status: {
    //   type: String,
@@ -31,6 +31,7 @@ const ShiftSchema = new mongoose.Schema(
  },
   { timestamps: true },
 );
-ShiftSchema.index({shiftDate:1, startTime:1});                                        //order date and time
+ShiftSchema.index({shiftDate:1, startTime:1});   
+ShiftSchema.index({shiftDate:1, slotKey:1},{unique:true});                                  //order date and time
 module.exports = mongoose.model('Shift', ShiftSchema);
 

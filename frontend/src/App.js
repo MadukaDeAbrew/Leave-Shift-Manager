@@ -74,6 +74,7 @@ function AppShell() {
   );
 }
 
+
 export default function App() {
   return (
     <AuthProvider>
@@ -81,3 +82,4 @@ export default function App() {
     </AuthProvider>
   );
 }
+

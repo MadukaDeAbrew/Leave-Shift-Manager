@@ -1,4 +1,4 @@
-// this include employees + admin users
+// this include s + admin users
 const express = require("express");
 const bcrypt = require("bcrypt");
 const { protect, adminOnly } = require("../middleware/authMiddleware");
@@ -6,15 +6,15 @@ const User = require("../models/User"); // reuse User model
 
 const router = express.Router();
 
-// === GET all employees ===
+// === GET all s ===
 /*
 router.get("/", protect, adminOnly, async (req, res) => {
   try {
-    const employees = await Employee.find({ systemRole: "employee" }).select("-password").lean();
-    res.json(employees);
+    const s = await Employee.find({ systemRole: "employeeect("-password").lean();
+    res.json(s);
   } catch (e) {
-    console.error("Fetch employees error:", e);
-    res.status(500).json({ message: "Server error fetching employees" });
+    console.error("Fetch s error:", e);
+    res.status(500).json({ message: "Server error fetching s" });
   }
 });
 */
@@ -30,8 +30,8 @@ router.get("/", protect, adminOnly, async (req, res) => {
   }
 });
 
-// === POST create new user (employee or admin) ===
-// === POST create new user (employee or admin) ===
+// === POST create new user ( or admin) ===
+// === POST create new user ( or admin) ===
 router.post("/", protect, adminOnly, async (req, res) => {
   try {
     const {
@@ -41,7 +41,7 @@ router.post("/", protect, adminOnly, async (req, res) => {
       jobRole,
       employmentType,
       joinedDate,
-      employeeId,
+      Id,
       systemRole // NEW: allow systemRole from req.body
     } = req.body;
 
@@ -61,13 +61,13 @@ router.post("/", protect, adminOnly, async (req, res) => {
     const newUser = await User.create({
       email: email.toLowerCase(),
       password: hashedPassword,
-      systemRole: systemRole === "admin" ? "admin" : "employee", // ✅ only admin can pass "admin"
+      systemRole: systemRole === "admin" ? "admin" : "", // ✅ only admin can pass "admin"
       firstName: firstName || "New",
       lastName: lastName || "User",
       jobRole: jobRole || "Unassigned",
       employmentType: employmentType || "Full Time",
       joinedDate: joinedDate || new Date(),
-      employeeId: employeeId || `EMP${Date.now()}`,
+      Id: employeeId || `EMP${Date.now()}`,
     });
 
     res.status(201).json({
