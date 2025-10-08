@@ -14,7 +14,7 @@ import axios from 'axios';
 
 const axiosInstance = axios.create({
   //baseURL: 'http://localhost:5001', // local
-  baseURL: 'http://13.239.222.44:5001', // live
+  baseURL: 'http://52.65.167.135:5001', // live
 
   // frontend/src/axiosConfig.js
 
