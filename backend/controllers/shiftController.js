@@ -6,20 +6,38 @@ const {SingleUser, UserGroup} = require('../shiftserver');
 
 exports.getShifts = async (req, res) => {
   try {
-    if (scope === 'all' && req.user.systemRole !== 'admin') {
+    const { from, to, scope:scopeRaw = 'self', status, jobRole } = req.query;
+  
+    //const { from, to, scope :scopeRaw='self' } = req.query;
+    
+    
+    console.log({ from, to, scopeRaw, status, jobRole });
+
+    if (!req.user) return res.status(401).json({ message: 'Unauthorized' });
+
+    let requestedScope = Array.isArray(scopeRaw) ? scopeRaw[0] : scopeRaw;
+    requestedScope = (requestedScope && requestedScope.trim()) ? requestedScope.trim().toLowerCase() : 'self';
+
+    if (requestedScope === 'all' && req.user.systemRole !== 'admin') {
       return res.status(403).json({ message: 'Access denied: Adimn only' });
     }
+console.log({ from, to, requestedScope, status, jobRole });
+
     const shifts = await ShiftService.list({
       from,
       to,
-      scope,
+      scope:requestedScope,
       viewerId: req.user.id,
-      userId,
       status,
       jobRole,
+
     });
-    res.json(shifts);
+
+  //console.log("shifts:",shifts)
+  console.log('shifts length:', Array.isArray(shifts) ? shifts.length : 'N/A');
+  return res.json(shifts);
   } catch (err) {
+    console.error('[getShifts] error:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
@@ -99,22 +117,25 @@ exports.deleteShift = async (req, res) => {
 //assign shifts
 exports.assignShift = async (req, res) => {
   try {
+   
     if (req.user.systemRole !== 'admin') {
       return res.status(403).json({ message: 'Access denied: Admin only' });
     }
 
     const { id } = req.params;
     const { userIds = [] } = req.body;
-    let assignTo;
-    if (userId.length === 1){
+    console.log('[assignShift] id=', id, 'userIds=', userIds);  // 👈 打印真实入参
+    /*et assignTo;
+    if (userIds.length === 1){
       assignTo = new SingleUser(userIds[0]);
     }
     else{
       assignTo = new UserGroup(userIds.map(uid => new SingleUser(uid)));
-    }
-    const doc = await ShiftService.assign(id, assignTo);
+    }*/
+    const doc = await ShiftService.assign(id, userIds);
     res.json(doc);
   } catch (err) {
+    console.error('[assignShift] ERROR before service:', err); // 👈 看这里有没有打印
     res.status(400).json({ message: err.message || 'Assign failed' });
   }
 };

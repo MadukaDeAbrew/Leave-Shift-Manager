@@ -8,6 +8,11 @@ dotenv.config();
 
 const app = express();
 
+app.use((req, res, next) => {
+  console.log(`[IN] ${req.method} ${req.originalUrl}`);
+  next();
+});
+
 // === Middleware ===
 app.use(cors());
 app.use(express.json());
