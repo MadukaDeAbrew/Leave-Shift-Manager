@@ -70,6 +70,23 @@ async create({ shiftDate, slotKey,jobRole, createdBy }) {
   });
 }
 
+// update shift (admin only)
+async update(id, patch) {
+  const shift = await Shift.findById(id);
+  if (!shift) throw new Error('Shift not found');
+
+  if (patch.shiftDate) shift.shiftDate = patch.shiftDate;
+  if (patch.startTime) shift.startTime = patch.startTime;
+  if (patch.endTime) shift.endTime = patch.endTime;
+  if (patch.jobRole) shift.jobRole = patch.jobRole;
+  if (patch.status) shift.status = patch.status;
+  if (patch.assignedTo) shift.assignedTo = patch.assignedTo;
+
+  await shift.save();
+  return shift;
+}
+
+
 //remove shifts
 async remove(_id){
   await Shift.findByIdAndDelete(_id);
@@ -106,6 +123,7 @@ async assign(_id, pickedIds){
   .populate({ path: 'assignedTo', select: 'firstName lastName name email', model: 'User' });
 }
 }
+
 
 module.exports = new ShiftService();
 module.exports.ShiftService = ShiftService;

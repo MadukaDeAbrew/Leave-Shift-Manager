@@ -31,7 +31,7 @@ router.get("/", protect, adminOnly, async (req, res) => {
 });
 
 // === POST create new user ( or admin) ===
-// === POST create new user ( or admin) ===
+// === POST create a new employee (admin only) ===
 router.post("/", protect, adminOnly, async (req, res) => {
   try {
     const {
@@ -41,8 +41,7 @@ router.post("/", protect, adminOnly, async (req, res) => {
       jobRole,
       employmentType,
       joinedDate,
-      Id,
-      systemRole // NEW: allow systemRole from req.body
+      systemRole
     } = req.body;
 
     if (!email) {
@@ -54,31 +53,33 @@ router.post("/", protect, adminOnly, async (req, res) => {
       return res.status(409).json({ message: "User with this email already exists." });
     }
 
-    // Create a temp password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash("TempPass123!", salt);
+
+    // ✅ FIX: define employeeId correctly
+    const employeeId = `EMP${Date.now()}`;
 
     const newUser = await User.create({
       email: email.toLowerCase(),
       password: hashedPassword,
-      systemRole: systemRole === "admin" ? "admin" : "", // ✅ only admin can pass "admin"
+      systemRole: systemRole === "admin" ? "admin" : "employee",
       firstName: firstName || "New",
       lastName: lastName || "User",
       jobRole: jobRole || "Unassigned",
       employmentType: employmentType || "Full Time",
       joinedDate: joinedDate || new Date(),
-      Id: employeeId || `EMP${Date.now()}`,
+      employeeId: employeeId, // ✅ include generated ID
     });
 
     res.status(201).json({
       id: newUser._id,
+      employeeId: newUser.employeeId,
       email: newUser.email,
       firstName: newUser.firstName,
       lastName: newUser.lastName,
       jobRole: newUser.jobRole,
       employmentType: newUser.employmentType,
       joinedDate: newUser.joinedDate,
-      employeeId: newUser.employeeId,
       systemRole: newUser.systemRole,
     });
   } catch (e) {
@@ -86,7 +87,6 @@ router.post("/", protect, adminOnly, async (req, res) => {
     res.status(500).json({ message: "Server error creating user" });
   }
 });
-
 
 // === PUT update employee ===
 router.put("/:id", protect, adminOnly, async (req, res) => {

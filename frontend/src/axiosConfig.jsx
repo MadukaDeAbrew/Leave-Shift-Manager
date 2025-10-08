@@ -13,8 +13,8 @@ export default axiosInstance;
 import axios from 'axios';
 
 const axiosInstance = axios.create({
-  baseURL: 'http://localhost:5001', // local
-  //baseURL: 'http://13.54.210.184:5001', // live
+  //baseURL: 'http://localhost:5001', // local
+  baseURL: 'http://52.65.167.135:5001', // live
 
   // frontend/src/axiosConfig.js
 
