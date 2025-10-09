@@ -57,23 +57,30 @@ export default function EmployeesPage() {
   };
 
   const onSave = async () => {
-    try {
-      if (editing) {
-        await axiosInstance.put(`/api/employees/${editing._id}`, form, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      } else {
-        await axiosInstance.post("/api/employees", form, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      }
-      setShowModal(false);
-      fetchUsers();
-    } catch (e) {
-      console.error("Save user error:", e.response?.data || e.message);
-      alert("Failed to save user");
+  try {
+    if (editing) {
+      await axiosInstance.put(`/api/employees/${editing._id}`, form, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } else {
+      await axiosInstance.post("/api/employees", form, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
     }
-  };
+    setShowModal(false);
+    fetchUsers();
+  } catch (e) {
+    console.error("Save user error:", e.response?.data || e.message);
+
+    const backendMsg = e.response?.data?.message;
+    if (backendMsg) {
+      alert(backendMsg); // e.g. "First name is required"
+    } else {
+      alert("Failed to save user. Please try again.");
+    }
+  }
+};
+
 
   const openEdit = (user) => {
     setEditing(user);
@@ -182,15 +189,20 @@ export default function EmployeesPage() {
             </h2>
 
             <label className="block mb-2">
-              <span className="text-sm">Employee ID</span>
-              <input
-                type="text"
-                name="employeeId"
-                value={form.employeeId || ""}
-                onChange={onChange}
-                className="w-full p-2 border rounded"
-              />
-            </label>
+            <span className="text-sm">Employee ID</span>
+            <input
+              type="text"
+              name="employeeId"
+              value={form.employeeId || ""}
+              onChange={onChange}
+              placeholder={editing ? "Edit employee ID" : "Auto-generated on save"}
+              className={`w-full p-2 border rounded ${
+                editing ? "" : "bg-gray-100 text-gray-500"
+              }`}
+              readOnly={!editing} // only editable when editing
+            />
+          </label>
+
 
             <label className="block mb-2">
               <span className="text-sm">First Name</span>
