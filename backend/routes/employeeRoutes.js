@@ -56,7 +56,7 @@ router.post("/", protect, adminOnly, async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash("TempPass123!", salt);
 
-    // ✅ FIX: define employeeId correctly
+    // changed employeeId format
     const employeeId = `EMP${Date.now()}`;
 
     const newUser = await User.create({

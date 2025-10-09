@@ -18,6 +18,12 @@ const getEmployees = async (req, res) => {
 const createEmployee = async (req, res) => {
   try {
     const { firstName, lastName, email, jobRole, employmentType } = req.body;
+     if (!firstName?.trim()) {
+      return res.status(400).json({ message: 'First name is required.' });
+    }
+    if (!lastName?.trim()) {
+      return res.status(400).json({ message: 'Last name is required.' });
+    }
 
     if (!email) {
       return res.status(400).json({ message: 'Email is required' });
