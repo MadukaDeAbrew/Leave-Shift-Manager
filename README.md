@@ -118,3 +118,424 @@ username: user2@gmail.com
 password: User2@lsm
 
 Postman collection: https://maduka-deabrew-7451040.postman.co/workspace/IFN636-Assignment-2-%3A-Group-10~9e075a34-661e-4d6d-a799-abbb54885c99/collection/47516803-246342a6-dfee-457c-8bee-22e34a352186?action=share&source=copy-link&creator=47516803
+
+
+
+Please find the Postman API collection attached below - you can copy this to a json (save as .json file) and import via postman.
+
+
+{
+	"info": {
+		"_postman_id": "246342a6-dfee-457c-8bee-22e34a352186",
+		"name": "LeaveShiftManager API Collection : Group 10",
+		"description": "This Postman collection is created for Leave & Shift Management App (Auth, Employees, Leaves, Shifts) with jwt_token variable by Group 10 for IFN636 Assignment 2.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json",
+		"_exporter_id": "47516803",
+		"_collection_link": "https://maduka-deabrew-7451040.postman.co/workspace/IFN636-Assignment-2-%3A-Group-10~9e075a34-661e-4d6d-a799-abbb54885c99/collection/47516803-246342a6-dfee-457c-8bee-22e34a352186?action=share&source=collection_link&creator=47516803"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Register",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"first name\": \"User \",\n  \"last name\": \"3\",\n  \"email\": \"user3@gmail.com\",\n  \"password\": \"User3@lsm\"\n}"
+						},
+						"url": "{{base_url}}/api/auth/register"
+					},
+					"response": []
+				},
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"let response = pm.response.json();",
+									"if (response.token) {",
+									"   pm.environment.set('jwt_token', response.token);",
+									"   console.log('JWT Token saved to environment');",
+									"} else {",
+									"   console.warn('No token found in response!');",
+									"}"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"admin1@gmail.com\",\n  \"password\": \"Admin1@lsm\"\n}"
+						},
+						"url": "{{base_url}}/api/auth/login"
+					},
+					"response": []
+				},
+				{
+					"name": "Change Password",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"oldPassword\": \"User2@Lsm\",\n  \"newPassword\": \"User2@lsm\"\n}"
+						},
+						"url": "{{base_url}}/api/auth/change-password"
+					},
+					"response": []
+				},
+				{
+					"name": "My Profile",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": "{{base_url}}/api/auth/profile"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Employees",
+			"item": [
+				{
+					"name": "Get Employees",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": "{{base_url}}/api/employees"
+					},
+					"response": []
+				},
+				{
+					"name": "Add Employee",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"firstName\": \"User\",\n  \"lastName\": \"100\",\n  \"email\": \"user100@gmail.com\",\n  \"jobRole\": \"Cashier\",\n  \"employmentType\": \"Full Time\"\n}\n"
+						},
+						"url": "{{base_url}}/api/employees"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Employee",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"firstName\": \"Alex\"\n  //\"lastName\": \"Smith\",\n  //\"email\": \"alex.smith@gmail.com\",\n  //\"jobRole\": \"receptionist\",\n  //\"employmentType\": \"Part-Time\"\n}\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": "{{base_url}}/api/employees/{{_id}}"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Employee",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text"
+							}
+						],
+						"url": "{{base_url}}/api/employees/{{_id}}"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Leaves",
+			"item": [
+				{
+					"name": "Get Leaves",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": "{{base_url}}/api/leaves"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Leave",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"type\": \"Annual\",\n  \"startDate\": \"2025-10-10\",\n  \"endDate\": \"2025-10-15\"\n}"
+						},
+						"url": "{{base_url}}/api/leaves"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Leave",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"startDate\": \"2025-10-12\",\n  \"endDate\": \"2025-10-14\",\n  \"reason\": \"Family Trip\"\n}"
+						},
+						"url": "{{base_url}}/api/leaves/{{leaveId}}"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Leave",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": "{{base_url}}/api/leaves/{{leaveId}}"
+					},
+					"response": []
+				},
+				{
+					"name": "Approve Leave (Admin)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": "{{base_url}}/api/leaves/{{leaveId}}/approve"
+					},
+					"response": []
+				},
+				{
+					"name": "Reject Leave (Admin)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": "{{base_url}}/api/leaves/{{leaveId}}/reject"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Shifts",
+			"item": [
+				{
+					"name": "Get Shifts",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": "{{base_url}}/api/shifts"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Shift",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "//{\n // \"shiftDate\": \"2025-10-20\",\n // \"startTime\": \"09:00\",\n  //\"endTime\": \"17:00\",\n  //\"jobRole\": \"Receptionist\",\n  //\"title\": \"Morning Reception Shift\",\n  //\"slotKey\": \"Morning\",\n  //\"slot\":\"2025/11/11, 8:00-12:00\"\n//}\n\n{\n  \"shiftDate\": \"2025-10-21\",\n  \"slotKey\": \"s10_12\",\n  \"jobRole\": \"Receptionist\",\n  \"title\": \"Morning Reception Shift\"\n}\n\n"
+						},
+						"url": "{{base_url}}/api/shifts"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Shift",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": "{{base_url}}/api/shifts/{{shiftId}}"
+					},
+					"response": []
+				},
+				{
+					"name": "Assign Shift (Admin)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  //\"userIds\": [\"{{userId1}}\", \"{{userId2}}\"]\n  \n  \"userIds\": [\"671a59cde3214f0a2b8f1234\"]\n\n\n}"
+						},
+						"url": "{{base_url}}/api/shifts/{{shiftId}}/assign"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Unassigned Shifts (Admin)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": "{{base_url}}/api/shifts/unassigned"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Shift",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"jobRole\": \"Receptionist\",\n  \"status\": \"assigned\",\n  \"shiftDate\": \"2025-10-28\"\n}\n"
+						},
+						"url": "{{base_url}}/api/shifts/{{shiftId}}"
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
