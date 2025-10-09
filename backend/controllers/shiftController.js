@@ -6,9 +6,7 @@ const {SingleUser, UserGroup} = require('../shiftserver');
 
 exports.getShifts = async (req, res) => {
   try {
-    const { from, to, scope:scopeRaw = 'self', status, jobRole } = req.query;
-  
-    //const { from, to, scope :scopeRaw='self' } = req.query;
+    const { from, to, scope:scopeRaw = 'self', status, jobRole, slotKey } = req.query;
     
     
     console.log({ from, to, scopeRaw, status, jobRole });
@@ -30,6 +28,7 @@ console.log({ from, to, requestedScope, status, jobRole });
       viewerId: req.user.id,
       status,
       jobRole,
+      slotKey,
 
     });
 

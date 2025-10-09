@@ -189,6 +189,18 @@ function AddShiftForm({onCreated}) {
     await axios.post('/api/shifts', { slotKey:slotKey, jobRole:role });
     setReloadFlag(v => v + 1);
   };*/
+    const onDeleteShift = async (shiftId) => {
+  if (!window.confirm('Delete this shift? This cannot be undone.')) return;
+  try {
+    await axios.delete(`/api/shifts/${shiftId}`);
+    reload?.();
+  } catch (e) {
+    console.error('delete failed:', e);
+    alert(e?.response?.data?.message || e.message || 'Delete failed');
+  }
+};
+
+
 
   return (
     <div className="p-6 bg-white shadow rounded-lg">
@@ -217,13 +229,29 @@ function AddShiftForm({onCreated}) {
                 <td className="px-4 py-2 border">{s.jobRole || '-'}</td>
                 <td className="px-4 py-2 border">
                   {s.assignedTo && s.assignedTo.length > 0
-                    ?s.assignedTo.map(s => s.firstName).join(', ')
-                    : (<span
+                    ?s.assignedTo.map(s => s.firstName || s.name || s.email || String(s._id || s)).join(', ')
+                    :(<div className="flex items-center gap-2">
+                    <span
                       className="text-blue-600 underline cursor-pointer hover:text-blue-800"
                       onClick={() => openAssignPopup(s)}
                     >
                       Unassigned
                     </span>
+                    {(
+                    <>
+                      <span className="text-gray-300">|</span>
+                      <button
+                        type="button"
+                        className="text-red-600 hover:text-red-800 underline"
+                        onClick={() => onDeleteShift(s._id)}
+                        title="Delete this shift"
+                    >
+                      Delete
+                    </button>
+                    </>
+                    )}
+                    </div>
+
                     )}
                 </td>
                 <td className="px-4 py-2 border">
@@ -239,7 +267,7 @@ function AddShiftForm({onCreated}) {
                 </td>
               </tr>
             ))}
-            {"null"}
+            
             {shifts.length === 0 && (
               <tr>
                 <td colSpan="5" className="text-center py-4 text-gray-500">
@@ -337,7 +365,6 @@ function AddShiftForm({onCreated}) {
         </table>
       </div>
 
-
                 <input
                   type="text"
                   placeholder="Enter user ID"
@@ -432,14 +459,14 @@ function WeekGrid({ weekStart, slots, shifts, isAdmin, onAssign, onUnassign, onC
                           ? shift.assignedTo.map(u => (u.name || u.email || String(u))).join(', ')
                           : <span className="text-amber-700">Unassigned</span>}
                       </div>
-                      {isAdmin && (
+                      {/*isAdmin && (
                         Array.isArray(shift.assignedTo) && shift.assignedTo.length > 0
                           ? <button className="text-xs underline" onClick={() => onUnassign(shift._id)}>Cancel</button>
                           : <button className="text-xs underline" onClick={() => {
                               const uid = prompt('Type userId');
                               if (uid) onAssign(shift._id, uid);
                             }}>assign to</button>
-                      )}
+                      )*/}
                     </div>
                   )}
                 </td>
@@ -483,6 +510,12 @@ export default function ShiftsPage() {
   const [msg, setMsg] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
 
+useEffect(() => {
+  if (isAdmin) {
+    setFilters(f => (f.status ? { ...f, status: '' } : f));
+  }
+}, [isAdmin]);
+
 const load = useCallback(async () => {
     try {
        /*if (!weekStart || !weekEnd) {
@@ -497,6 +530,8 @@ const load = useCallback(async () => {
         ...(filters.jobRole && { jobRole: filters.jobRole }),
         ...(filters.slotKey && { slotKey: filters.slotKey }),
         ...(filters.status && { status: filters.status }),
+        ...(!isAdmin && filters.status ? { status: filters.status } : {}),
+
       };
 
       console.log('[GET /api/shifts] params =', params);
@@ -521,7 +556,9 @@ const load = useCallback(async () => {
   useEffect(() => { 
     /*if (weekStart && weekEnd) {
     load();
-     }*/load();
+     }*/
+    
+    load();
      /* eslint-disable-line */ }, 
      [reloadFlag, weekStart, weekEnd, isAdmin, filters.jobRole, filters.slotKey, filters.status]);
     const onAssign = async (shiftId, userId) => {
@@ -533,27 +570,20 @@ const load = useCallback(async () => {
       await axios.post(`/api/shifts/${shiftId}/assign`, { userIds: [] });
       load();
     };
-    const onCreateEmpty = async (slotKey) => {
+    const onCreateEmpty = async (date,slotKey) => {
       const role = filters.jobRole || prompt('Role') || '';
-      await axios.post('/api/shifts', { slotKey:slotKey, jobRole:role });
+      await axios.post('/api/shifts',{ shiftDate: date, slotKey, jobRole: role }  /*slotKey:slotKey, jobRole:role*/ );
       setReloadFlag(v => v + 1);
     };
   return (
     <div>
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-2">
-        <button className="px-2 py-1 border rounded" onClick={() => setAnchorDate(addDays(weekStart, -7))}>◀ previous</button>
-        <strong>{weekStart} ~ {weekEnd}</strong>
-        <button className="px-2 py-1 border rounded" onClick={() => setAnchorDate(addDays(weekStart, 7))}>next ▶</button>
-        <input type="date" className="border rounded px-2 py-1" value={anchorDate} onChange={e=>setAnchorDate(e.target.value)} />
-      </div>
-    </div>
+
 
     {isAdmin && (
-      <div className="flex justify-end mb-4">
+      <div className="flex mb-4">
         <button
           onClick={() => setModalOpen(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          className="mt-4 ml-6 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
         >
           Manage Shifts
         </button>
@@ -576,7 +606,44 @@ const load = useCallback(async () => {
             </div>
           </div>
         )}
-          <div className="flex flex-wrap gap-2 items-end">
+          
+        </div>
+      )
+    }
+    
+    {msg && <div className="text-sm text-red-600">{msg}</div>}
+
+     <div>
+      <div className="max-w-6xl mx-auto p-2 space-y-6">
+      <div className="w-[80%] mx-autoflex items-center justyfy-center gap-2 mt-2 mb-2">
+        <button className="px-2 py-1 border rounded" onClick={() => setAnchorDate(addDays(weekStart, -7))}>◀ previous</button>
+        <strong>{weekStart} ~ {weekEnd}</strong>
+        <button className="px-2 py-1 border rounded" onClick={() => setAnchorDate(addDays(weekStart, 7))}>next ▶</button>
+        <input type="date" className="border rounded px-2 py-1" value={anchorDate} onChange={e=>setAnchorDate(e.target.value)} />
+      </div>
+    </div>
+    <div className="w-[80%] mx-auto">
+      <WeekGrid
+        weekStart={weekStart}
+        slots={[
+          { key: 's08_10', label: '08:00–10:00' },
+          { key: 's10_12', label: '10:00–12:00' },
+          { key: 's12_14', label: '12:00–14:00' },
+          { key: 's14_16', label: '14:00–16:00' },
+          { key: 's16_18', label: '16:00–18:00' },
+          { key: 's18_20', label: '18:00–20:00' },
+        ]}
+        shifts={shifts}
+        isAdmin={isAdmin}
+        onAssign={onAssign}
+        onUnassign={onUnassign}
+        onCreateEmpty={onCreateEmpty}
+      />
+      </div>
+      {/*<ShiftTable reloadFlag={reloadFlag} scope={isAdmin ? 'all' : 'self'} />*/}
+{isAdmin &&(
+<div className="flex flex-wrap items-end justify-center gap-1 border rounded-md p-1 bg-gray-50 mt-2
+ mx-auto max-w-3xl">
             <div>
               <label className="block text-xs">jobRole</label>
               <input className="border rounded px-2 py-1" value={filters.jobRole} onChange={e=>setFilters(f=>({...f, jobRole:e.target.value}))} />
@@ -599,41 +666,19 @@ const load = useCallback(async () => {
               <label className="block text-xs">status</label>
               <select className="border rounded px-2 py-1" value={filters.status} onChange={e=>setFilters(f=>({...f, status:e.target.value}))}>
                 <option value="">all</option>
-                <option value="unassigned">unssign</option>
+                <option value="unassigned">unassigned</option>
                 <option value="assigned">assigned</option>
               </select>
             </div>
-            <button className="px-3 py-1 border rounded" onClick={load}>Search</button>
           </div>
-        </div>
-      )
-    }
-    
-    {msg && <div className="text-sm text-red-600">{msg}</div>}
-
-     <div>
-      <WeekGrid
-        weekStart={weekStart}
-        slots={[
-          { key: 's08_10', label: '08:00–10:00' },
-          { key: 's10_12', label: '10:00–12:00' },
-          { key: 's12_14', label: '12:00–14:00' },
-          { key: 's14_16', label: '14:00–16:00' },
-          { key: 's16_18', label: '16:00–18:00' },
-          { key: 's18_20', label: '18:00–20:00' },
-        ]}
-        shifts={shifts}
-        isAdmin={isAdmin}
-        onAssign={onAssign}
-        onUnassign={onUnassign}
-        onCreateEmpty={onCreateEmpty}
-      />
-      {/*<ShiftTable reloadFlag={reloadFlag} scope={isAdmin ? 'all' : 'self'} />*/}
+)}
+    {isAdmin && (
       <ShiftTable 
       shifts={shifts}
       reload={load}
+      isAdmin={true}
       />
-
+      )}
 
     </div>
 

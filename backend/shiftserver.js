@@ -35,7 +35,7 @@ class ShiftService {
     if (from && to)q.shiftDate = {$gte:from, $lte:to}; //>= and <= date
     if (status) q.status = status;
     if (jobRole) q.jobRole = jobRole;
-    if(slotKey) q.slotKey = slotKey
+    if(slotKey) q.slotKey = slotKey;
 
     if (scope === 'self'&& viewerId){
         q.assignedTo = viewerId;
@@ -44,7 +44,7 @@ class ShiftService {
    // return Shift.find(q).sort({ shiftDate: 1, startTime: 1 }).populate('assignedTo', 'name email');
    return Shift.find(q)
   .sort({ shiftDate: 1, startTime: 1 })
-  .populate({ path: 'assignedTo', select: 'firstName email', model: 'User' });
+  .populate({ path: 'assignedTo', select: 'firstName jobRole email', model: 'User' });
 
 
 }  
@@ -119,15 +119,14 @@ async assign(_id, pickedIds){
       : 'assigned'; 
 
   await s.save({ validateBeforeSave: false });
-  return Shift.findById(_id)
-    .populate({ path: 'assignedTo', select: 'firstName lastName name email', model: 'User' });
+  return Shift.findById(_id) 
+  .populate({ path: 'assignedTo', select: 'firstName lastName name email', model: 'User' });
 }
 }
 
 
 module.exports = new ShiftService();
-module.exports.ShiftService = ShiftService; // 可选：同时导出类
-
+module.exports.ShiftService = ShiftService;
 //module.exports.SingleUser = SingleUser;
 //module.exports.UserGroup  = UserGroup;
 
