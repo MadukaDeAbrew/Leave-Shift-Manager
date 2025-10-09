@@ -64,7 +64,7 @@ const getLeaves = async (req, res) => {
 // controllers/leaveController.js
 const approveRequest = async (req, res) => {
   try {
-    const updated = await RequestService.approveRequest(req.params.id);
+    const updated = await RequestFacade.approveRequest(req.params.id);
     res.json(updated);
   } catch (err) {
     console.error('approveLeave error:', err);

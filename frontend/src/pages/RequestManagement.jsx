@@ -69,7 +69,7 @@ export default function RequestManagement() {
 
   const Popup = ({children, onClose}) =>(
     <div className='flex fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50'>
-      <div className='bg-white p-6 rounded shadow-lg relative w-full max-w-md'>
+      <div className='bg-white p-6 rounded shadow-lg relative w-full max-w-md overflow-auto'>
         <button  
           onClick = {onClose}
           className='absolute top-2 right-2 text-grey-500 hover:text-gray-700'
@@ -141,6 +141,13 @@ export default function RequestManagement() {
 
   const approveLeave = async (patch) => {
     try {
+
+      if(patch.isAcceptSwap === true){
+        setSwapTarget(patch);
+        setShowSwapDialog(true);
+        return;
+      }
+
       const res = await axiosInstance.patch(`/api/admin/requests/${patch._id}/approve`);
       const updated = res.data;
       
@@ -150,18 +157,81 @@ export default function RequestManagement() {
 
       setOk('Leave request approved.');
 
-      if(updated.isAcceptSwap){
-        setSwapTarget(updated);
-        setShowSwapDialog(true);
-      }
       if (editTarget?._id === patch._id) setEditTarget(null);
     } catch (e) {
       const status = e?.response?.status;
       const msg = e?.response?.data?.message || e?.message || 'Failed to reject leave.';
-      console.error('Reject leave failed:', status, msg);
-      setErr(`Failed to reject leave${status ? ` (HTTP ${status})` : ''}. ${msg}`);
+      console.error('Approve leave failed:', status, msg);
+      setErr(`Failed to approve leave${status ? ` (HTTP ${status})` : ''}. ${msg}`);
     }
   };
+  const [selectedShiftId, setSelectedShiftId] = useState(null);
+  const [availableShifts, setAvailableShifts] = useState([]);
+
+  useEffect(()=>{
+     const fetchAvailableShifts = async () => {
+    if (!swapTarget?._id) return;
+
+     try {
+      //all search by filter
+      /*const params={
+        from:new Date().toISOString().split('T')[0],
+        to:new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString.split('T')[0],
+        scope:'all',
+        //jobrole:userId.jobrole,
+      }*/
+      const res = await axiosInstance.get(`/api/shifts/`);
+      setAvailableShifts(res.data || []);
+    } catch (err) {
+      console.error("Failed to fetch available shifts:", err);
+      setAvailableShifts([]);
+    }
+  };
+
+  if (showSwapDialog) {
+    fetchAvailableShifts();
+  }
+  },[showSwapDialog, swapTarget]);
+
+  const handleSaveShiftSwap = async (shiftId) => {
+    if (!shiftId) return alert("Please select a shift first");
+
+    try {
+      const res = await axiosInstance.patch(`/api/admin/requests/${swapTarget._id}/approve`, { newShiftId: shiftId });
+      const updated = res.data;
+
+      setRows(prev =>
+      prev.map(r => (r._id === swapTarget._id ? { ...r, status: updated.status } : r))
+    );
+
+      setShowSwapDialog(false);
+      setSwapTarget(null);
+      alert("Shift swap saved successfully!");
+
+    } catch (err) {
+      console.error(err);
+      alert("Failed to save shift swap.");
+    }
+  };
+
+  /*const handleConvertToLeave = async (leaveId) => {
+  try {
+    const res = await axiosInstance.patch(`/api/admin/requests/${leaveId}/approve`, {
+      forceAsLeave: true, 
+    });
+
+    setRows(prev => prev.map(r => 
+      r._id === leaveId ? { ...r, status: res.data.status } : r
+    ));
+
+    setOk("Converted to leave and approved.");
+    setShowSwapDialog(false);
+  } catch (err) {
+    console.error("Convert to leave failed:", err);
+    setErr("Failed to convert to leave.");
+  }
+};*/
+
 
   const statusPill = (status) => {
     const base = 'px-2 py-1 rounded text-sm';
@@ -231,34 +301,68 @@ export default function RequestManagement() {
         <div>
       {/* Inline Edit (reuses LeaveForm with initial values) */}
       {showSwapDialog && (
-  <Popup onClose={() => setShowSwapDialog(false)}>
-    <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center">
-      <div className="mb-4 font-semibold text-blue-800">
-        Assign a replacement shift for {swapTarget.userName}
-        <div className="bg-white p-6 rounded-lg shadow-xl w-96">
-            <h2 className="text-xl font-semibold mb-4">
-              {swapTarget.userName}
-            </h2>
+        <Popup onClose={() => setShowSwapDialog(false)}>
+            <div className="mb-4 font-semibold text-blue-800">
+              Assign a replacement shift for {swapTarget.userName}
+              <div className="bg-white p-6 rounded-lg shadow-xl w-96">
+                  <h2 className="text-xl font-semibold mb-4">
+                    {swapTarget.userName}
+                  </h2>
 
-            <ul className="list-disc pl-6">
-              {swapTarget.preferences?.map((p, i) => (
-                <li key={i}>Preferences:{p}</li>
-              ))}
-            </ul>
-              
-            <div className="flex justify-end space-x-2 mt-4">
-              <button
-                type='submit'
-                className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700"
-              >
-                Save Shift Swap
-              </button>
+                  {swapTarget.preferences && swapTarget.preferences.length > 0 && (
+                    <ul className="list-disc pl-6 mb-4 text-blue-700">
+                      Preferences:
+                    {swapTarget.preferences?.map((p, i) => (
+                      <li key={i}>{p}</li>
+                    ))}
+                  </ul>
+                  )}
+      
+                  <div className="mb-4">
+                    <h3 className="font-semibold text-gray-700 mb-2">Available Shifts</h3>
+                    <ul className="space-y-2 max-h-40 overflow-y-auto border rounded-lg p-2">
+                      {availableShifts?.map((shift) => (
+                        <li
+                          key={shift._id}
+                          className={`p-2 border rounded cursor-pointer hover:bg-blue-50 ${
+                            selectedShiftId === shift._id ? "bg-blue-100 border-blue-500" : ""
+                          }`}
+                          onClick={() => setSelectedShiftId(shift._id)}
+                        >
+                          <div className="font-semibold text-gray-800">
+                            {shift.shiftDate} ({shift.startTime} - {shift.endTime})
+                          </div>
+                          <div className="text-sm text-gray-600">{shift.department}</div>
+                        </li>
+                      ))}
+                      {(!availableShifts || availableShifts.length === 0) && (
+                        <li className="text-gray-500 italic text-sm">No available shifts found.</li>
+                      )}
+                    </ul>
+                  </div>
+                  <div className="flex justify-end space-x-2 mt-4">
+                    <button
+                      type='submit'
+                      onClick={() => handleSaveShiftSwap(selectedShiftId)}
+                      disabled={!selectedShiftId}
+                      className={`px-3 py-1 rounded text-white ${
+                        selectedShiftId ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-400 cursor-not-allowed"
+                      }`}
+                    >
+                      Save Shift Swap
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowSwapDialog(false)}
+                      className="px-3 py-1 rounded border border-gray-400 text-gray-600 hover:bg-gray-100"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
             </div>
-          </div>
-      </div>
-    </div>
-  </Popup>
-)}
+        </Popup>
+      )}
       </div>
         
     </div>
