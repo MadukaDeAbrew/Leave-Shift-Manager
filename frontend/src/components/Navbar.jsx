@@ -30,9 +30,9 @@ export default function Navbar() {
             <NavLink to="/shifts" className={({ isActive }) => (isActive ? "underline" : "")}>
               Shifts
             </NavLink>
-            <NavLink to="/my-swaps" className={({ isActive }) => (isActive ? "underline" : "")}>
+            {/*<NavLink to="/my-swaps" className={({ isActive }) => (isActive ? "underline" : "")}>
               My Swaps
-            </NavLink>
+            </NavLink>/*}s
 
             
       
