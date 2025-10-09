@@ -173,7 +173,7 @@ describe('Employee Controller (unit)', () => {
   });
 
   it('createEmployee - 201 success', async () => {
-    const req = { body: { firstName: 'Alice', email: 'alice@example.com' } };
+    const req = { body: { firstName: 'Alice', lastName: 'Smith', email: 'alice@example.com' } };
     const res = makeRes();
     sinon.stub(User, 'findOne').resolves(null);
     const newUser = { _id: new mongoose.Types.ObjectId(), ...req.body };
@@ -184,7 +184,7 @@ describe('Employee Controller (unit)', () => {
   });
 
   it('createEmployee - 409 if email exists', async () => {
-    const req = { body: { firstName: 'Alice', email: 'alice@example.com' } };
+    const req = { body: { firstName: 'Alice', lastName: 'Smith', email: 'alice@example.com' } };
     const res = makeRes();
     sinon.stub(User, 'findOne').resolves({ _id: '123', email: 'alice@example.com' });
 
